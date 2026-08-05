@@ -30,12 +30,10 @@ jobs:
               run: npm run build
 
             - name: Upload GitHub Pages Artifact
-              if: github.event_name == 'push'
               uses: actions/upload-pages-artifact@v4
               with:
                 path: ./dist
     deploy:
-        if: github.event_name == 'push'
         needs: build
         runs-on: ubuntu-latest
 

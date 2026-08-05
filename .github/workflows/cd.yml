@@ -3,11 +3,10 @@ name: CD Rick And Morty
 run-name: CD Rick And Morty
 
 on:
-  workflow_run:
-    workflows: ["CI Rick And Morty"]
-    types:
-      - completed
-    branches: [main]
+    workflow_run:
+        workflows: ["CI Rick And Morty"]
+        types:
+            - completed
 
 jobs:
   deploy:
@@ -32,11 +31,4 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: ./dist
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+            

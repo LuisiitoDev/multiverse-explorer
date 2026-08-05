@@ -31,10 +31,13 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./dist
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          folder: ./dist
 
             

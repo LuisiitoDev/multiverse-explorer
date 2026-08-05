@@ -39,5 +39,5 @@ jobs:
         with:
           name: build-dist
           path: ./dist
-          retein-days: 1
+          retention-days: 1
           if-no-files-found: error

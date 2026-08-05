@@ -1,0 +1,136 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #f5f7fa;
+  background: #111827;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #111827 0%, #1f2937 100%);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+.page-shell {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 4rem 0;
+}
+
+.hero {
+  max-width: 720px;
+  margin-bottom: 2.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #86efac;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 1rem;
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  line-height: 0.95;
+}
+
+.hero-copy {
+  color: #cbd5e1;
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.25rem;
+}
+
+.character-card {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background: rgba(31, 41, 55, 0.9);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
+}
+
+.character-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.character-card__content {
+  padding: 1rem;
+}
+
+.character-card h2 {
+  margin-bottom: 0.35rem;
+  font-size: 1.2rem;
+}
+
+.character-card p {
+  margin-bottom: 0.75rem;
+  color: #cbd5e1;
+}
+
+.status {
+  display: inline-flex;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: #374151;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.status--alive {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.status--dead {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.status--unknown {
+  color: #d1d5db;
+}
+
+.state-message {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.state-message--error {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+}

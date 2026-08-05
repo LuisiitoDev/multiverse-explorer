@@ -1,7 +1,10 @@
 name: CI Rick And Morty
+
 run-name: CI Rick And Morty
+
 on: 
-    workflow_dispatch:
+  pull_request:
+    branches: [ main ]
 
 jobs:
     build:
@@ -33,20 +36,3 @@ jobs:
               uses: actions/upload-pages-artifact@v4
               with:
                 path: ./dist
-    deploy:
-        needs: build
-        runs-on: ubuntu-latest
-
-        permissions:
-            pages: write
-            id-token: write
-
-        environment:
-            name: github-pages
-            url: ${{ steps.deployment.outputs.page_url }}
-
-
-        steps:
-            - name: Deploy to GitHub Pages
-              id: deployment
-              uses: actions/deploy-pages@v4

@@ -6,6 +6,5 @@ coverage
 !.env.example
 .vscode
 .DS_Store
-package-lock.json
 tsconfig.app.tsbuildinfo
 tsconfig.node.tsbuildinfo

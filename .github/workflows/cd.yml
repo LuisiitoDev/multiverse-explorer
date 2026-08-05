@@ -1,0 +1,40 @@
+name: CD Rick And Morty
+
+run-name: CD Rick And Morty
+
+on:
+    workflow_run:
+        workflows: ["CI Rick And Morty"]
+        types:
+            - completed
+        branches: [ main ]
+
+jobs:
+    deploy: 
+        name: Deploy to GitHub Pages 🚀
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        runs-on: ubuntu-latest
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Download artifact from CI workflow
+              uses: actions/download-artifact@v4
+              with:
+                name: pages-artifact
+                path: ./dist
+
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v4
+              with:
+                folder: ./distß
+
+            

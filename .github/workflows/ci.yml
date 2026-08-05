@@ -2,37 +2,42 @@ name: CI Rick And Morty
 
 run-name: CI Rick And Morty
 
-on: 
+on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
+  push:
+    branches: [main]
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            - name: Set up Node.js
-              uses: actions/setup-node@v6
-              with:
-                node-version: 22
-                cache: 'npm'
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'npm'
 
-            - name: Install dependencies
-              run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-            - name: Linter
-              run: npm run lint
+      - name: Linter
+        run: npm run lint
 
-            - name: Run tests
-              run: npm test
+      - name: Run tests
+        run: npm test
 
-            - name: Build app
-              run: npm run build
+      - name: Build app
+        run: npm run build
 
-            - name: Upload GitHub Pages Artifact
-              uses: actions/upload-pages-artifact@v4
-              with:
-                path: ./dist
+      - name: Upload Rick and Morty Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-dist
+          path: ./dist
+          retein-days: 1
+          if-no-files-found: error

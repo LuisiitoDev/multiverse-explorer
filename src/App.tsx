@@ -51,7 +51,7 @@ function App() {
         <h1>Rick and Morty Explorer</h1>
         <p className="hero-copy">
           A small React application for practicing continuous integration and
-          deployment with GitHub Actions.
+          deployment with GitHub Actions CI/CD.
         </p>
       </header>
 

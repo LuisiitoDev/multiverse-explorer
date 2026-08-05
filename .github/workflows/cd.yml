@@ -7,7 +7,6 @@ on:
         workflows: ["CI Rick And Morty"]
         types:
             - completed
-        branches: [ main ]
 
 jobs:
     deploy: 

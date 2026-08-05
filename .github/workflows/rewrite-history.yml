@@ -1,0 +1,82 @@
+name: Rewrite commit dates once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rewrite-history.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rewrite-history:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout complete repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git and fetch every branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "LuisiitoDev"
+          git config user.email "79773016+LuisiitoDev@users.noreply.github.com"
+
+          git fetch --prune --tags origin '+refs/heads/*:refs/remotes/origin/*'
+
+          while IFS= read -r remote_ref; do
+            branch="${remote_ref#refs/remotes/origin/}"
+
+            if [[ "$branch" == "HEAD" ]]; then
+              continue
+            fi
+
+            if [[ "$branch" == "main" ]]; then
+              git reset --hard "$remote_ref"
+            else
+              git branch --force "$branch" "$remote_ref"
+            fi
+          done < <(git for-each-ref --format='%(refname)' refs/remotes/origin)
+
+      - name: Create recovery bundle
+        shell: bash
+        run: git bundle create repository-before-history-rewrite.bundle --all
+
+      - name: Upload recovery bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-before-history-rewrite
+          path: repository-before-history-rewrite.bundle
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Rewrite every branch and tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NEW_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          export NEW_DATE
+
+          mapfile -t REFS < <(
+            git for-each-ref --format='%(refname)' refs/heads refs/tags
+          )
+
+          FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force \
+            --env-filter '
+              export GIT_AUTHOR_DATE="$NEW_DATE"
+              export GIT_COMMITTER_DATE="$NEW_DATE"
+            ' \
+            --tag-name-filter cat \
+            -- "${REFS[@]}"
+
+          echo "New commit timestamp: $NEW_DATE"
+          git log --all --format='%aI | %cI' | sort --unique
+
+          git push --force origin --all
+          git push --force origin --tags

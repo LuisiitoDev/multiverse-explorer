@@ -8,3 +8,4 @@ coverage
 .DS_Store
 tsconfig.app.tsbuildinfo
 tsconfig.node.tsbuildinfo
+.claude

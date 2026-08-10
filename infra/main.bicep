@@ -20,7 +20,7 @@ resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   location: location
   properties:{
     appLogsConfiguration:{
-      destination: 'logAnalytics'
+      destination: 'log-analytics'
       logAnalyticsConfiguration:{
         customerId: logAnalytics.properties.customerId
         sharedKey:  logAnalytics.listKeys().primarySharedKey

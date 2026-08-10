@@ -92,4 +92,5 @@ jobs:
           echo "url=https://$FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Publish application URL
-        run: echo "Production URL: ${{ steps.appurl.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "Production URL: ${{ steps.appurl.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"

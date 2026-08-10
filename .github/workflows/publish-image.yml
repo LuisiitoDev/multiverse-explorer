@@ -35,7 +35,9 @@ jobs:
 
           - name: Set image reference
             id: image
-            run: echo "value=${IMAGE_NAME,,}:${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+            run: |
+              echo "value=${IMAGE_NAME,,}:${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+              echo "latest=${IMAGE_NAME,,}:latest" >> "$GITHUB_OUTPUT"
           
           - name: Set up Docker Buildx
             uses: docker/setup-buildx-action@v3
@@ -47,7 +49,7 @@ jobs:
               push: true
               tags: |
                 ${{ steps.image.outputs.value }}
-                ${{ env.IMAGE_NAME }}:latest
+                ${{ steps.image.outputs.latest }}
               labels: |
                 org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
                 org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}

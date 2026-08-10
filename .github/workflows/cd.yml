@@ -4,7 +4,7 @@ run-name: CD Rick And Morty
 
 on:
   workflow_run:
-    workflows: ["CI Rick And Morty"]
+    workflows: ["CI"]
     types:
       - completed
 

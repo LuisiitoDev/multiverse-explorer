@@ -1,0 +1,57 @@
+{
+  "name": "Rick and Morty DevOps Lab",
+
+  "image": "mcr.microsoft.com/devcontainers/dotnet:10.0",
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "containerEnv": {
+    "TZ": "America/Costa_Rica"
+  },
+
+  "postCreateCommand": "npm ci && git config --global alias.midnight '!f() { DATE=\"$(date +%Y-%m-%d)T00:00:00-06:00\"; GIT_AUTHOR_DATE=\"$DATE\" GIT_COMMITTER_DATE=\"$DATE\" git commit \"$@\"; }; f'",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-dotnettools.csdevkit",
+        "ms-azuretools.vscode-docker",
+        "ms-azuretools.vscode-azurecontainerapps",
+        "GitHub.vscode-github-actions"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+
+  "forwardPorts": [
+    5173,
+    5000,
+    5001
+  ],
+
+  "portsAttributes": {
+    "5173": {
+      "label": "React / Vite"
+    },
+    "5000": {
+      "label": "Favorites API HTTP"
+    },
+    "5001": {
+      "label": "Favorites API HTTPS"
+    }
+  },
+
+  "remoteUser": "vscode"
+}

@@ -33,3 +33,14 @@ jobs:
 
       - name: Build app
         run: npm run build
+
+      - name: Analyze Static Code with SonarCloud
+        uses: SonarSource/sonarqube-scan-action@v5
+        with: 
+          args: >
+              -Dsonar.organization=luisiitodev
+              -Dsonar.projectKey=luisiitodev
+              -Dsonar.sources=.
+        env:
+          GIT_HUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

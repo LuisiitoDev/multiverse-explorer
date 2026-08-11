@@ -1,7 +1,7 @@
 {
   "name": "Rick and Morty DevOps Lab",
 
-  "image": "mcr.microsoft.com/devcontainers/dotnet:10.0",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:9.0",
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
@@ -9,14 +9,15 @@
     },
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
     "ghcr.io/devcontainers/features/azure-cli:1": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/git-lfs:1": {}
   },
 
   "containerEnv": {
     "TZ": "America/Costa_Rica"
   },
 
-  "postCreateCommand": "npm ci && git config --global alias.midnight '!f() { DATE=\"$(date +%Y-%m-%d)T00:00:00-06:00\"; GIT_AUTHOR_DATE=\"$DATE\" GIT_COMMITTER_DATE=\"$DATE\" git commit \"$@\"; }; f'",
+  "postCreateCommand": "npm ci && git lfs install && git config --global alias.midnight '!f() { DATE=\"$(date +%Y-%m-%d)T00:00:00-06:00\"; GIT_AUTHOR_DATE=\"$DATE\" GIT_COMMITTER_DATE=\"$DATE\" git commit \"$@\"; }; f'",
 
   "customizations": {
     "vscode": {
@@ -35,11 +36,7 @@
     }
   },
 
-  "forwardPorts": [
-    5173,
-    5000,
-    5001
-  ],
+  "forwardPorts": [5173, 5000, 5001],
 
   "portsAttributes": {
     "5173": {

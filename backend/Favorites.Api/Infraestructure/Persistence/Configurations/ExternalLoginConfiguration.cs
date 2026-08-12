@@ -23,11 +23,15 @@ public class ExternalLoginConfiguration : IEntityTypeConfiguration<ExternalLogin
             .IsRequired()
             .HasMaxLength(200);
 
+        builder.Property(e => e.CreateAt)
+            .HasColumnType("datetime2")
+            .HasDefaultValueSql("SYSUTCDATETIME()");
+
         builder.HasIndex(e => new { e.Provider, e.ProviderUserId })
             .IsUnique();
 
         builder.HasOne(e => e.User)
-            .WithMany()
+            .WithMany(u => u.ExternalLogins)
             .HasForeignKey(e => e.UserId)
             .OnDelete(DeleteBehavior.Cascade);
     }

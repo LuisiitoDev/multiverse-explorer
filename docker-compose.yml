@@ -5,5 +5,46 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
-  
+      - "3000:8080"
+    depends_on:
+      - api
+
+  api:
+    image: ${DOCKER_REGISTRY-}favoritesapi
+    build:
+      context: ./backend/Favorites.Api
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__FavoritesDb: "Server=db,1433;Database=FavoritesDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True"
+      Database__MigrateOnStartup: "true"
+      Authentication__google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Authentication__google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      Authentication__microsoft__ClientId: ${MICROSOFT_CLIENT_ID:-}
+      Authentication__microsoft__ClientSecret: ${MICROSOFT_CLIENT_SECRET:-}
+      Authentication__facebook__AppId: ${FACEBOOK_APP_ID:-}
+      Authentication__facebook__AppSecret: ${FACEBOOK_APP_SECRET:-}
+    expose:
+      - "8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  mssql-data:

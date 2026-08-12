@@ -7,5 +7,5 @@ public class FavoriteModel
     public required string ResourceType { get; set; }
     public int ResourceId { get; set; }
     public DateTime CreateAt { get; set; }
-    public required UserModel User { get; set; }
+    public UserModel? User { get; set; }
 }

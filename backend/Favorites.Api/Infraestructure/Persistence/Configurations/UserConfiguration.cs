@@ -27,7 +27,10 @@ public class UserConfiguration : IEntityTypeConfiguration<UserModel>
             .HasColumnType("datetime2")
             .HasDefaultValueSql("SYSUTCDATETIME()");
 
-        builder.HasIndex(u => u.Email)
-            .IsUnique();
+        builder.Property(u => u.UpdateAt)
+            .HasColumnType("datetime2");
+
+        // Not unique: two providers may legitimately report the same email for distinct identities.
+        builder.HasIndex(u => u.Email);
     }
 }

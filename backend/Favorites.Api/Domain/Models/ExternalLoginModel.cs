@@ -6,5 +6,6 @@ public class ExternalLoginModel
     public Guid UserId { get; set; }
     public required string Provider { get; set; }
     public required string ProviderUserId { get; set; }
-    public required UserModel User { get; set; }
+    public DateTime CreateAt { get; set; }
+    public UserModel? User { get; set; }
 }

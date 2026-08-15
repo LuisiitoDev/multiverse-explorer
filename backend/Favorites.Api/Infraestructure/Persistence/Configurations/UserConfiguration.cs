@@ -30,7 +30,9 @@ public class UserConfiguration : IEntityTypeConfiguration<UserModel>
         builder.Property(u => u.UpdateAt)
             .HasColumnType("datetime2");
 
-        // Not unique: two providers may legitimately report the same email for distinct identities.
-        builder.HasIndex(u => u.Email);
+        // Unverified/absent emails are stored as "" and may repeat; a real email identifies at most one account.
+        builder.HasIndex(u => u.Email)
+            .IsUnique()
+            .HasFilter("([Email] <> '')");
     }
 }

@@ -1,6 +1,9 @@
 namespace Favorites.Api.Application.DTOs;
 
-public record CreateFavoriteRequest(Guid UserId, string ResourceType, int ResourceId);
+/// <summary>Client-supplied body. The user is taken from the session, never from the request.</summary>
+public record CreateFavoriteRequest(string ResourceType, int ResourceId);
+
+public record CreateFavoriteCommand(Guid UserId, string ResourceType, int ResourceId);
 
 public record GetFavoritesQuery(Guid UserId, string? Type);
 

@@ -1,16 +1,24 @@
+using Favorites.Api.Application.Abstractions;
 using Favorites.Api.Application.DTOs;
-using FluentValidation;
 
 namespace Favorites.Api.Application.Validation;
 
-public class DeleteFavoriteCommandValidator : AbstractValidator<DeleteFavoriteCommand>
+public class DeleteFavoriteCommandValidator : IValidator<DeleteFavoriteCommand>
 {
-    public DeleteFavoriteCommandValidator()
+    public IReadOnlyList<string> Validate(DeleteFavoriteCommand command)
     {
-        RuleFor(x => x.UserId)
-            .NotEmpty().WithMessage("userId is required.");
+        var errors = new List<string>();
 
-        RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("id must be greater than zero.");
+        if (command.UserId == Guid.Empty)
+        {
+            errors.Add("userId is required.");
+        }
+
+        if (command.Id <= 0)
+        {
+            errors.Add("id must be greater than zero.");
+        }
+
+        return errors;
     }
 }

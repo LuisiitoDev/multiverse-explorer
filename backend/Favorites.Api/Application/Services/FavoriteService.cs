@@ -24,31 +24,31 @@ public class FavoriteService(IFavoriteRepository favorites, IUserRepository user
             [.. items.Select(f => f.ToResponse())]);
     }
 
-    public async Task<Result<FavoriteResponse>> CreateAsync(CreateFavoriteRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<FavoriteResponse>> CreateAsync(CreateFavoriteCommand command, CancellationToken cancellationToken = default)
     {
-        var error = await validation.ValidateAsync(request, cancellationToken);
+        var error = await validation.ValidateAsync(command, cancellationToken);
         if (error is not null)
         {
             return Result<FavoriteResponse>.Failure(error);
         }
 
-        if (!await users.ExistsAsync(request.UserId, cancellationToken))
+        if (!await users.ExistsAsync(command.UserId, cancellationToken))
         {
-            return Result<FavoriteResponse>.Failure(Error.NotFound($"User '{request.UserId}' was not found."));
+            return Result<FavoriteResponse>.Failure(Error.NotFound($"User '{command.UserId}' was not found."));
         }
 
-        var resourceType = ResourceTypes.Normalize(request.ResourceType);
+        var resourceType = ResourceTypes.Normalize(command.ResourceType);
 
-        if (await favorites.ExistsAsync(request.UserId, resourceType, request.ResourceId, cancellationToken))
+        if (await favorites.ExistsAsync(command.UserId, resourceType, command.ResourceId, cancellationToken))
         {
             return Result<FavoriteResponse>.Failure(Error.Conflict("The resource is already in the user's favorites."));
         }
 
         var favorite = new FavoriteModel
         {
-            UserId = request.UserId,
+            UserId = command.UserId,
             ResourceType = resourceType,
-            ResourceId = request.ResourceId,
+            ResourceId = command.ResourceId,
             CreateAt = DateTime.UtcNow
         };
 

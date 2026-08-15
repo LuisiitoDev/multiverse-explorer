@@ -1,19 +1,25 @@
+using Favorites.Api.Application.Abstractions;
 using Favorites.Api.Application.DTOs;
 using Favorites.Api.Domain;
-using FluentValidation;
 
 namespace Favorites.Api.Application.Validation;
 
-public class GetFavoritesQueryValidator : AbstractValidator<GetFavoritesQuery>
+public class GetFavoritesQueryValidator : IValidator<GetFavoritesQuery>
 {
-    public GetFavoritesQueryValidator()
+    public IReadOnlyList<string> Validate(GetFavoritesQuery query)
     {
-        RuleFor(x => x.UserId)
-            .NotEmpty().WithMessage("userId is required.");
+        var errors = new List<string>();
 
-        RuleFor(x => x.Type)
-            .Must(ResourceTypes.IsValid)
-            .When(x => !string.IsNullOrWhiteSpace(x.Type))
-            .WithMessage($"type must be one of: {ResourceTypes.Character}, {ResourceTypes.Episode}, {ResourceTypes.Location}.");
+        if (query.UserId == Guid.Empty)
+        {
+            errors.Add("userId is required.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Type) && !ResourceTypes.IsValid(query.Type))
+        {
+            errors.Add($"type must be one of: {ResourceTypes.Character}, {ResourceTypes.Episode}, {ResourceTypes.Location}.");
+        }
+
+        return errors;
     }
 }

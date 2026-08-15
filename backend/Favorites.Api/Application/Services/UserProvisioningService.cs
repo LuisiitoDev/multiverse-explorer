@@ -47,7 +47,24 @@ public class UserProvisioningService(IUserRepository users, IExternalLoginReposi
 
         await users.AddAsync(user, cancellationToken);
 
-        return await LinkAsync(user, identity, cancellationToken);
+        var linked = await LinkAsync(user, identity, cancellationToken);
+        if (linked.IsSuccess || string.IsNullOrWhiteSpace(identity.Email))
+        {
+            return linked;
+        }
+
+        // A concurrent first login for the same email via a different provider won the race
+        // against the Users.Email unique index. Re-resolve now that it has committed.
+        var winnerByEmail = await users.FindByEmailAsync(identity.Email, cancellationToken);
+        if (winnerByEmail is null)
+        {
+            return linked;
+        }
+
+        return identity.EmailVerified
+            ? await LinkAsync(winnerByEmail, identity, cancellationToken)
+            : Result<UserModel>.Failure(Error.Conflict(
+                "An account already exists for this email. Sign in with your original provider and link this one from your account settings."));
     }
 
     private async Task<Result<UserModel>> LinkAsync(UserModel user, ExternalIdentity identity, CancellationToken cancellationToken)

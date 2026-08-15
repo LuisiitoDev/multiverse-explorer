@@ -13,6 +13,11 @@ builder.Services.AddInfraestructure(builder.Configuration, builder.Environment);
 builder.Services.AddApplication();
 
 // Required behind nginx so OAuth redirect URIs are generated as https.
+// KnownNetworks/KnownProxies are cleared because the nginx container's IP is not
+// static across restarts. This is safe only because docker-compose does not publish
+// the api service's port (see "expose", not "ports"), so nginx is the only caller
+// that can ever reach it; do not carry this pattern into a topology where api is
+// reachable directly, as it would let a caller spoof its own X-Forwarded-* headers.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;

@@ -13,6 +13,7 @@ A small React application that consumes the Rick and Morty API. The project is i
 ## Run locally
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
@@ -20,6 +21,7 @@ npm run dev
 ## Validate the project
 
 ```bash
+cd frontend
 npm test
 npm run build
 ```

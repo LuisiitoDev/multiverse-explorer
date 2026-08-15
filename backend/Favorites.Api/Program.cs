@@ -2,7 +2,9 @@ using Favorites.Api.Application;
 using Favorites.Api.Endpoints;
 using Favorites.Api.Infraestructure;
 using Favorites.Api.Infraestructure.Authentication;
+using Favorites.Api.Infraestructure.Persistence;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,6 +35,13 @@ if (app.Environment.IsDevelopment())
         .WithTheme(ScalarTheme.Mars)
         .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
     });
+}
+
+if (builder.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<FavoritesDbContext>();
+    await db.Database.MigrateAsync();
 }
 
 app.UseHttpsRedirection();

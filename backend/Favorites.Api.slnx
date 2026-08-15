@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Favorites.Api.Tests/Favorites.Api.Tests.csproj" />
+  <Project Path="Favorites.Api/Favorites.Api.csproj" />
+</Solution>

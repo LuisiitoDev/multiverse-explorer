@@ -135,7 +135,7 @@ Actions -> Canary Traffic -> Run workflow
   percent: 10
 ```
 
-The job runs in the `production-traffic` environment, so it waits for approval if
+The job runs in the `Production` environment, so it waits for approval if
 you configured a required reviewer (recommended — see
 [Setup](#one-time-setup) below).
 
@@ -180,7 +180,7 @@ revision, so reactivating is faster than rebuilding if something surfaces later.
 
 ## One-time setup
 
-**Required reviewer.** Create a GitHub Environment named `production-traffic`
+**Required reviewer.** Create a GitHub Environment named `Production`
 (Settings → Environments) and add yourself as a required reviewer. Without it the
 Canary Traffic workflow shifts traffic the moment it is dispatched.
 

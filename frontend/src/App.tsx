@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ArchivePanel from './components/ArchivePanel'
+import CharacterFilterPanel from './components/CharacterFilterPanel'
 import CharacterGrid from './components/CharacterGrid'
 import CharacterModal from './components/CharacterModal'
 import CharacterModalV2 from './components/CharacterModalV2'
@@ -17,12 +18,12 @@ import LocationModal from './components/LocationModal'
 import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
 import SeasonFilter from './components/SeasonFilter'
-import StatusFilters from './components/StatusFilters'
+import { useCharacterFilters } from './hooks/useCharacterFilters'
 import { useDebouncedValue } from './hooks/useDebouncedValue'
 import { useFeatureFlag } from './hooks/useFeatureFlag'
 import { usePaginatedResource } from './hooks/usePaginatedResource'
 import { fetchCharacters, fetchEpisodes, fetchLocations } from './services/rickAndMortyApi'
-import type { Character, StatusFilter } from './types/character'
+import type { Character } from './types/character'
 import type { Episode } from './types/episode'
 import type { Location } from './types/location'
 import type { View } from './types/view'
@@ -49,17 +50,21 @@ function LocationsIcon() {
 function App() {
   const [view, setView] = useState<View>('characters')
 
-  const [characterSearchInput, setCharacterSearchInput] = useState('')
-  const debouncedCharacterSearch = useDebouncedValue(characterSearchInput, 400).trim()
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const {
+    filters: characterFilters,
+    appliedFilters: appliedCharacterFilters,
+    filterKey: characterFilterKey,
+    setFilter: setCharacterFilter,
+    resetFilters: resetCharacterFilters,
+    hasActiveFilters: hasActiveCharacterFilters,
+  } = useCharacterFilters()
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
   const [isCharacterModalExpanded, setIsCharacterModalExpanded] = useState(false)
   const isCharacterModalV2Enabled = useFeatureFlag('characterModalV2')
 
   const charactersResource = usePaginatedResource<Character>(
-    (page, signal) =>
-      fetchCharacters({ name: debouncedCharacterSearch, status: statusFilter, page, signal }),
-    `${debouncedCharacterSearch}::${statusFilter}`,
+    (page, signal) => fetchCharacters({ ...appliedCharacterFilters, page, signal }),
+    characterFilterKey,
     view === 'characters',
   )
 
@@ -120,10 +125,12 @@ function App() {
         <div className="content" id="content">
           {view === 'characters' && (
             <>
-              <div className="controls">
-                <SearchBar value={characterSearchInput} onChange={setCharacterSearchInput} />
-                <StatusFilters value={statusFilter} onChange={setStatusFilter} />
-              </div>
+              <CharacterFilterPanel
+                filters={characterFilters}
+                onFilterChange={setCharacterFilter}
+                onReset={resetCharacterFilters}
+                hasActiveFilters={hasActiveCharacterFilters}
+              />
 
               {charactersResource.isLoading && <LoadingPortal />}
 
@@ -134,12 +141,7 @@ function App() {
               {!charactersResource.isLoading &&
                 !charactersResource.error &&
                 charactersResource.items.length === 0 && (
-                  <EmptyState
-                    onResetFilters={() => {
-                      setCharacterSearchInput('')
-                      setStatusFilter('all')
-                    }}
-                  />
+                  <EmptyState onResetFilters={resetCharacterFilters} />
                 )}
 
               {!charactersResource.isLoading &&

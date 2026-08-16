@@ -230,6 +230,311 @@ describe('App', () => {
     })
   })
 
+  describe('Advanced Search V2', () => {
+    function lastRequestUrl(fetchMock: ReturnType<typeof vi.spyOn>) {
+      return new URL(String(fetchMock.mock.calls.at(-1)?.[0]))
+    }
+
+    function mockCharacterSearch() {
+      return vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+        jsonResponse({ info: baseInfo, results: [mockRick] }),
+      )
+    }
+
+    it('filters the API request by species', async () => {
+      const fetchMock = mockCharacterSearch()
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      await user.type(screen.getByLabelText('Species'), 'Human')
+
+      await waitFor(
+        () => {
+          expect(lastRequestUrl(fetchMock).searchParams.get('species')).toBe('Human')
+        },
+        { timeout: 2000 },
+      )
+    })
+
+    it('filters the API request by gender', async () => {
+      const fetchMock = mockCharacterSearch()
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      await user.selectOptions(screen.getByLabelText('Gender'), 'male')
+
+      await waitFor(() => {
+        expect(lastRequestUrl(fetchMock).searchParams.get('gender')).toBe('male')
+      })
+    })
+
+    it('filters the API request by type', async () => {
+      const fetchMock = mockCharacterSearch()
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      await user.type(screen.getByLabelText('Type'), 'Genetic experiment')
+
+      await waitFor(
+        () => {
+          expect(lastRequestUrl(fetchMock).searchParams.get('type')).toBe('Genetic experiment')
+        },
+        { timeout: 2000 },
+      )
+    })
+
+    it('combines every filter into a single API request', async () => {
+      const fetchMock = mockCharacterSearch()
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      await user.type(screen.getByRole('searchbox', { name: /search characters by name/i }), 'Rick')
+      await user.click(screen.getByRole('button', { name: 'Alive' }))
+      await user.type(screen.getByLabelText('Species'), 'Human')
+      await user.selectOptions(screen.getByLabelText('Gender'), 'male')
+
+      await waitFor(
+        () => {
+          const params = lastRequestUrl(fetchMock).searchParams
+          expect(params.get('name')).toBe('Rick')
+          expect(params.get('status')).toBe('alive')
+          expect(params.get('species')).toBe('Human')
+          expect(params.get('gender')).toBe('male')
+          // Type was left blank, so it must not appear in the query at all.
+          expect(params.has('type')).toBe(false)
+          expect(params.get('page')).toBe('1')
+        },
+        { timeout: 2000 },
+      )
+    })
+
+    it('resets every filter back to its default and refetches the full list', async () => {
+      const fetchMock = mockCharacterSearch()
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      const speciesInput = screen.getByLabelText('Species')
+      const typeInput = screen.getByLabelText('Type')
+
+      await user.type(screen.getByRole('searchbox', { name: /search characters by name/i }), 'Rick')
+      await user.click(screen.getByRole('button', { name: 'Dead' }))
+      await user.type(speciesInput, 'Human')
+      await user.selectOptions(screen.getByLabelText('Gender'), 'male')
+      await user.type(typeInput, 'Clone')
+
+      const resetButton = screen.getByRole('button', { name: /reset all filters/i })
+      await waitFor(() => {
+        expect(resetButton).toBeEnabled()
+      })
+
+      await user.click(resetButton)
+
+      expect(speciesInput).toHaveValue('')
+      expect(typeInput).toHaveValue('')
+      expect(screen.getByLabelText('Gender')).toHaveValue('all')
+      expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true')
+      expect(resetButton).toBeDisabled()
+
+      await waitFor(
+        () => {
+          const params = lastRequestUrl(fetchMock).searchParams
+          expect(params.has('name')).toBe(false)
+          expect(params.has('status')).toBe(false)
+          expect(params.has('species')).toBe(false)
+          expect(params.has('gender')).toBe(false)
+          expect(params.has('type')).toBe(false)
+        },
+        { timeout: 2000 },
+      )
+    })
+
+    it('keeps the reset control disabled until a filter is actually applied', async () => {
+      mockCharacterSearch()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      expect(screen.getByRole('button', { name: /reset all filters/i })).toBeDisabled()
+    })
+
+    it('loads more results while advanced filters stay applied, without mixing pages', async () => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = new URL(String(input))
+
+        if (url.searchParams.get('species') !== 'Human') {
+          return jsonResponse({ info: baseInfo, results: [mockRick, mockMorty] })
+        }
+
+        if (url.searchParams.get('page') === '2') {
+          return jsonResponse({
+            info: { ...baseInfo, next: null, prev: 'prev' },
+            results: [mockMorty],
+          })
+        }
+
+        return jsonResponse({
+          info: { ...baseInfo, next: 'next', prev: null },
+          results: [mockRick],
+        })
+      })
+
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      await user.type(screen.getByLabelText('Species'), 'Human')
+
+      // The filtered first page must replace the unfiltered results entirely.
+      await waitFor(
+        () => {
+          expect(screen.queryByText('Morty Smith')).not.toBeInTheDocument()
+        },
+        { timeout: 2000 },
+      )
+
+      await user.click(screen.getByRole('button', { name: /load more characters/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText('Morty Smith')).toBeInTheDocument()
+      })
+
+      // Page two is appended, not swapped in.
+      expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+
+      const params = lastRequestUrl(fetchMock).searchParams
+      expect(params.get('species')).toBe('Human')
+      expect(params.get('page')).toBe('2')
+
+      expect(
+        screen.queryByRole('button', { name: /load more characters/i }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('shows the empty state when advanced filters match nothing', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = new URL(String(input))
+
+        if (url.searchParams.get('type')) {
+          return jsonResponse({ error: 'There is nothing here' }, 404)
+        }
+
+        return jsonResponse({ info: baseInfo, results: [mockRick] })
+      })
+
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      await user.type(screen.getByLabelText('Type'), 'Zzzznorf')
+
+      await waitFor(
+        () => {
+          expect(screen.getByText(/no life forms detected/i)).toBeInTheDocument()
+        },
+        { timeout: 2000 },
+      )
+    })
+
+    it('surfaces the error state when an advanced filter request fails, and retries', async () => {
+      let speciesCallCount = 0
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = new URL(String(input))
+
+        if (url.searchParams.get('species') === 'Alien') {
+          speciesCallCount += 1
+
+          if (speciesCallCount === 1) {
+            return new Response(null, { status: 500 })
+          }
+
+          return jsonResponse({ info: baseInfo, results: [mockMorty] })
+        }
+
+        return jsonResponse({ info: baseInfo, results: [mockRick] })
+      })
+
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      await user.type(screen.getByLabelText('Species'), 'Alien')
+
+      await waitFor(
+        () => {
+          expect(screen.getByText(/portal connection lost/i)).toBeInTheDocument()
+        },
+        { timeout: 2000 },
+      )
+
+      await user.click(screen.getByRole('button', { name: /retry scan/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText('Morty Smith')).toBeInTheDocument()
+      })
+    })
+
+    it('leaves the episodes search untouched by character filters', async () => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = new URL(String(input))
+
+        if (url.pathname.includes('/episode')) {
+          return jsonResponse({ info: baseInfo, results: [mockEpisode] })
+        }
+
+        return jsonResponse({ info: baseInfo, results: [mockRick] })
+      })
+
+      const user = userEvent.setup()
+      renderApp()
+
+      await waitFor(() => {
+        expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+      })
+
+      await user.type(screen.getByLabelText('Species'), 'Human')
+      await user.click(screen.getByRole('button', { name: /episodes/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText('Pilot')).toBeInTheDocument()
+      })
+
+      const params = lastRequestUrl(fetchMock).searchParams
+      expect(params.has('species')).toBe(false)
+      expect(params.has('gender')).toBe(false)
+    })
+  })
+
   it('shows an empty state and resets filters back to the full list', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = new URL(String(input))

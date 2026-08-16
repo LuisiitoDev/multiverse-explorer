@@ -1,4 +1,13 @@
-import type { ApiInfo, Character, StatusFilter } from '../types/character'
+import type {
+  ApiInfo,
+  Character,
+  CharacterFilters,
+  GenderFilter,
+  StatusFilter,
+} from '../types/character'
+import { EMPTY_CHARACTER_FILTERS } from '../types/character'
+import type { QueryParamRules } from './queryParams'
+import { buildQueryParams, omitWhen, optionalText } from './queryParams'
 import type { Episode } from '../types/episode'
 import type { Location } from '../types/location'
 
@@ -35,23 +44,32 @@ async function fetchList<TItem>(
   return { results: data.results, info: data.info }
 }
 
-type FetchCharactersOptions = {
+// One entry per filter. The API matches name, species and type as substrings,
+// so they are sent as typed rather than filtered client-side.
+const CHARACTER_QUERY_RULES: QueryParamRules<CharacterFilters> = {
+  name: optionalText,
+  // The union is named explicitly so the sentinel does not narrow the strategy
+  // to the literal 'all'.
+  status: omitWhen<StatusFilter>('all'),
+  species: optionalText,
+  gender: omitWhen<GenderFilter>('all'),
+  type: optionalText,
+}
+
+// The V2 filters are optional so existing V1 callers (name + status) keep
+// working untouched and produce an identical query.
+type FetchCharactersOptions = Partial<CharacterFilters> & {
   name: string
   status: StatusFilter
   page: number
   signal?: AbortSignal
 }
 
-export function fetchCharacters({ name, status, page, signal }: FetchCharactersOptions) {
-  const params = new URLSearchParams()
-
-  if (name) {
-    params.set('name', name)
-  }
-
-  if (status !== 'all') {
-    params.set('status', status)
-  }
+export function fetchCharacters({ page, signal, ...filters }: FetchCharactersOptions) {
+  const params = buildQueryParams(
+    { ...EMPTY_CHARACTER_FILTERS, ...filters },
+    CHARACTER_QUERY_RULES,
+  )
 
   params.set('page', String(page))
 

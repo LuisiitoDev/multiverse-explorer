@@ -32,9 +32,25 @@ const MAX_RADIUS_Y = 38
 // Pushes the first node off dead centre so the middle of the map is not crowded.
 const INNER_OFFSET = 0.35
 
+/**
+ * Deterministic hash of an integer to the [0, 1) range.
+ *
+ * Every step stays inside 32-bit integer arithmetic: `Math.imul` multiplies as
+ * int32 and `>>>` coerces back to uint32. Multiplying a large seed by a large
+ * constant directly would run past Number.MAX_SAFE_INTEGER and lose precision
+ * silently, so the sequence would stop being the one the constants describe.
+ */
+export function hashToUnitInterval(seed: number): number {
+  let hash = Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b)
+  hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35)
+  hash ^= hash >>> 16
+
+  return (hash >>> 0) / 4294967296
+}
+
 /** Small stable per-id variation so the spiral does not look mechanical. */
 function jitterFromId(id: number): number {
-  return ((id * 2654435761) % 1000) / 1000 - 0.5
+  return hashToUnitInterval(id) - 0.5
 }
 
 function roundTo(value: number, decimals = 2): number {

@@ -1,5 +1,43 @@
 import { describe, expect, it } from 'vitest'
-import { connectionsBetween, layoutNodes, positionForNode } from './multiverseLayout'
+import {
+  connectionsBetween,
+  hashToUnitInterval,
+  layoutNodes,
+  positionForNode,
+} from './multiverseLayout'
+
+describe('hashToUnitInterval', () => {
+  it('is deterministic', () => {
+    expect(hashToUnitInterval(42)).toBe(hashToUnitInterval(42))
+  })
+
+  it('stays inside [0, 1)', () => {
+    for (let seed = 0; seed < 500; seed += 1) {
+      const value = hashToUnitInterval(seed)
+
+      expect(value).toBeGreaterThanOrEqual(0)
+      expect(value).toBeLessThan(1)
+    }
+  })
+
+  it('stays finite for seeds beyond the safe integer range', () => {
+    for (const seed of [0, 1, 137, 2 ** 20, 2 ** 31 - 1, Number.MAX_SAFE_INTEGER]) {
+      expect(Number.isFinite(hashToUnitInterval(seed))).toBe(true)
+    }
+  })
+
+  it('spreads seeds across the range instead of clustering', () => {
+    const buckets = new Set(
+      Array.from({ length: 200 }, (_, seed) => Math.floor(hashToUnitInterval(seed) * 10)),
+    )
+
+    expect(buckets.size).toBe(10)
+  })
+
+  it('gives neighbouring seeds unrelated values', () => {
+    expect(Math.abs(hashToUnitInterval(1) - hashToUnitInterval(2))).toBeGreaterThan(0.01)
+  })
+})
 
 const locations = [
   { id: 1, name: 'Earth (C-137)' },

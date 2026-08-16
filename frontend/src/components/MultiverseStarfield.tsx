@@ -1,24 +1,23 @@
 import { useMemo } from 'react'
+import { hashToUnitInterval } from '../utils/multiverseLayout'
 
-// Generated once from a fixed seed so the starfield never shifts between
-// renders -- the same reason node positions are deterministic.
+const STAR_COUNT = 90
+
+// Derived from the star's index rather than carried in a running seed, so each
+// star is independent, the field never shifts between renders, and the
+// arithmetic stays inside the safe integer range.
 function generateStars(count: number) {
-  let seed = 137
-
-  return Array.from({ length: count }, (_, index) => {
-    seed = (seed * 1103515245 + 12345) % 2147483648
-    const x = (seed / 2147483648) * 100
-    seed = (seed * 1103515245 + 12345) % 2147483648
-    const y = (seed / 2147483648) * 100
-    seed = (seed * 1103515245 + 12345) % 2147483648
-    const size = 0.12 + (seed / 2147483648) * 0.3
-
-    return { id: index, x, y, size, delay: (index % 7) * 0.6 }
-  })
+  return Array.from({ length: count }, (_, index) => ({
+    id: index,
+    x: hashToUnitInterval(index * 3 + 1) * 100,
+    y: hashToUnitInterval(index * 3 + 2) * 100,
+    size: 0.12 + hashToUnitInterval(index * 3 + 3) * 0.3,
+    delay: (index % 7) * 0.6,
+  }))
 }
 
 function MultiverseStarfield() {
-  const stars = useMemo(() => generateStars(90), [])
+  const stars = useMemo(() => generateStars(STAR_COUNT), [])
 
   return (
     <g className="multiverse-map__stars">

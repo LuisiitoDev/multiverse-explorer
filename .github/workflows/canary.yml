@@ -1,0 +1,133 @@
+name: Canary Traffic
+
+run-name: Canary Traffic -> ${{ inputs.action }} ${{ inputs.percent }}%
+
+# Deliberately manual. If traffic shifted automatically right after deploy this
+# would be a slow full deploy, not a canary -- the decision point is the feature.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'What to do with traffic'
+        type: choice
+        required: true
+        default: shift
+        options:
+          - shift      # send `percent` to the canary, the rest to stable
+          - rollback   # stable back to 100%, canary to 0%
+          - promote    # canary to 100% and deactivate the old stable
+      percent:
+        description: 'Percent of traffic for the canary (shift only, 1-99)'
+        type: string
+        required: false
+        default: '10'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  APP_NAME: ${{ vars.APP_NAME }}
+
+jobs:
+  traffic:
+    name: Shift traffic
+    runs-on: ubuntu-latest
+    # Point this at a GitHub Environment with a required reviewer so a human
+    # approves before real users are exposed.
+    environment: production-traffic
+    steps:
+      - name: Validate percent
+        if: inputs.action == 'shift'
+        run: |
+          case "${{ inputs.percent }}" in
+            ''|*[!0-9]*) echo "percent must be a whole number" >&2; exit 1 ;;
+          esac
+
+          if [ "${{ inputs.percent }}" -lt 1 ] || [ "${{ inputs.percent }}" -gt 99 ]; then
+            echo "percent must be between 1 and 99. Use 'promote' for 100 or 'rollback' for 0." >&2
+            exit 1
+          fi
+
+      - name: Log in to Azure using OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      # The canary is whichever revision carries the 'canary' label (set by CD).
+      # Stable is whichever active revision currently holds the most traffic.
+      - name: Identify revisions
+        id: revisions
+        run: |
+          CANARY=$(az containerapp revision list \
+              --name "$APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "[?properties.active && contains(properties.labels || [], 'canary')].name | [0]" -o tsv)
+
+          STABLE=$(az containerapp ingress traffic show \
+              --name "$APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "sort_by([?revisionName != null && revisionName != '$CANARY'], &weight) | [-1].revisionName" -o tsv)
+
+          if [ -z "$CANARY" ]; then
+            echo "No revision carries the 'canary' label. Run CD first." >&2
+            exit 1
+          fi
+
+          if [ -z "$STABLE" ] || [ "$STABLE" = "$CANARY" ]; then
+            echo "Could not identify a distinct stable revision -- the canary may already hold all traffic." >&2
+            exit 1
+          fi
+
+          echo "canary=$CANARY" >> "$GITHUB_OUTPUT"
+          echo "stable=$STABLE" >> "$GITHUB_OUTPUT"
+          echo "Canary: $CANARY"
+          echo "Stable: $STABLE"
+
+      - name: Shift traffic to the canary
+        if: inputs.action == 'shift'
+        run: |
+          REMAINDER=$((100 - ${{ inputs.percent }}))
+          az containerapp ingress traffic set \
+              --name "$APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+              --revision-weight \
+                "${{ steps.revisions.outputs.canary }}=${{ inputs.percent }}" \
+                "${{ steps.revisions.outputs.stable }}=$REMAINDER"
+
+      # Seconds, and no rebuild -- this is the payoff of splitting deploy from release.
+      - name: Roll back to stable
+        if: inputs.action == 'rollback'
+        run: |
+          az containerapp ingress traffic set \
+              --name "$APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+              --revision-weight \
+                "${{ steps.revisions.outputs.stable }}=100" \
+                "${{ steps.revisions.outputs.canary }}=0"
+
+      - name: Promote the canary
+        if: inputs.action == 'promote'
+        run: |
+          az containerapp ingress traffic set \
+              --name "$APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+              --revision-weight "${{ steps.revisions.outputs.canary }}=100"
+
+          # Deactivated rather than deleted: reactivating is far faster than
+          # rebuilding if something surfaces after promotion.
+          az containerapp revision deactivate \
+              --name "$APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+              --revision "${{ steps.revisions.outputs.stable }}"
+
+      - name: Report resulting split
+        run: |
+          {
+            echo "### Traffic after \`${{ inputs.action }}\`"
+            echo ""
+            echo '```'
+            az containerapp ingress traffic show \
+                --name "$APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" -o table
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

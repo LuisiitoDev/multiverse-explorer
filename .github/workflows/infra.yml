@@ -7,7 +7,12 @@ on:
             - main
         paths:
             - 'infra/**'
-    workflow_dispatch: 
+    workflow_dispatch:
+        inputs:
+            routeTrafficToLatestRevision:
+                description: 'Bootstrap traffic to the newest revision. Leave false once CD owns the weights.'
+                type: boolean
+                default: false
 
 permissions:
     id-token: write
@@ -23,6 +28,9 @@ env:
 
 jobs:
     deploy:
+        # Reads the image currently running so an infrastructure deploy never
+        # replaces the application. The previous hardcoded hello-world image
+        # would have wiped the running app on every run.
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
@@ -35,6 +43,24 @@ jobs:
                 tenant-id: ${{ env.AZURE_TENANT_ID }}
                 subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
+
+            - name: Resolve the currently deployed image
+              id: image
+              run: |
+                CURRENT=$(az containerapp show \
+                    --name "${{ env.APP_NAME }}" \
+                    --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+                    --query "properties.template.containers[0].image" -o tsv 2>/dev/null || true)
+
+                if [ -z "$CURRENT" ]; then
+                  # First ever deploy: nothing is running yet, so seed with the
+                  # placeholder. CD replaces it on the next push.
+                  CURRENT="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+                  echo "No existing container app found; bootstrapping with the placeholder image."
+                fi
+
+                echo "Deploying with image: $CURRENT"
+                echo "value=$CURRENT" >> "$GITHUB_OUTPUT"
 
             - name: Create resource group if not exits
               run: |
@@ -50,7 +76,8 @@ jobs:
                 --parameters
                 location="${{ env.AZURE_LOCATION }}"
                 appName="${{ env.APP_NAME }}"
-                containerImage="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+                containerImage="${{ steps.image.outputs.value }}"
+                routeTrafficToLatestRevision="${{ inputs.routeTrafficToLatestRevision || false }}"
                 --output none
 
             - name: Deploy Bicep
@@ -62,5 +89,6 @@ jobs:
                     --parameters \
                     location="${{ env.AZURE_LOCATION }}" \
                     appName="${{ env.APP_NAME }}" \
-                    containerImage="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" \
+                    containerImage="${{ steps.image.outputs.value }}" \
+                    routeTrafficToLatestRevision="${{ inputs.routeTrafficToLatestRevision || false }}" \
                     --output json > deployment.json

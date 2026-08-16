@@ -1872,22 +1872,83 @@ p {
 }
 
 .multiverse-map {
+  position: relative;
   overflow-x: auto;
-  overflow-y: hidden;
-  border-radius: 20px;
-  border: 1px solid var(--panel-border);
+  overflow-y: auto;
+  height: clamp(480px, 68vh, 680px);
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(54, 217, 255, 0.55) rgba(3, 7, 17, 0.85);
+  border-radius: 12px;
   background:
     radial-gradient(circle at 20% 25%, rgba(54, 217, 255, 0.12), transparent 45%),
     radial-gradient(circle at 78% 70%, rgba(168, 85, 247, 0.14), transparent 45%),
     linear-gradient(160deg, #030711 0%, #061421 60%, #040d17 100%);
-  box-shadow: inset 0 0 70px rgba(4, 12, 22, 0.9), 0 0 30px rgba(54, 217, 255, 0.08);
+  box-shadow: inset 0 0 70px rgba(4, 12, 22, 0.9);
+}
+
+.multiverse-map__controls {
+  position: sticky;
+  z-index: 8;
+  top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  margin: 0.75rem 0.75rem -2.75rem auto;
+  padding: 0.35rem;
+  border: 1px solid rgba(54, 217, 255, 0.3);
+  border-radius: 10px;
+  background: rgba(3, 11, 20, 0.86);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.multiverse-map__control {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid rgba(54, 217, 255, 0.35);
+  border-radius: 6px;
+  background: rgba(9, 26, 40, 0.9);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.multiverse-map__control--reset {
+  width: auto;
+  padding: 0 0.5rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.multiverse-map__control:hover:not(:disabled),
+.multiverse-map__control:focus-visible {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.multiverse-map__control:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.multiverse-map__zoom-level {
+  min-width: 3.1rem;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  text-align: center;
 }
 
 .multiverse-map__surface {
   position: relative;
-  width: 100%;
-  min-width: 520px;
-  aspect-ratio: 16 / 9;
+  width: max(100%, 2200px);
+  height: 1400px;
+  min-width: 100%;
+  flex: 0 0 auto;
 }
 
 .multiverse-map__canvas {
@@ -1990,6 +2051,36 @@ p {
   transition: opacity 0.25s ease;
 }
 
+.multiverse-node__tooltip {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 0.65rem);
+  left: 50%;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 190px;
+  max-width: 240px;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(54, 217, 255, 0.4);
+  border-radius: 10px;
+  background: rgba(3, 11, 20, 0.94);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38), 0 0 20px rgba(54, 217, 255, 0.16);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -0.3rem);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.multiverse-node__tooltip strong {
+  margin-bottom: 0.15rem;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
 .multiverse-node:hover,
 .multiverse-node:focus-visible {
   outline: none;
@@ -2001,6 +2092,12 @@ p {
 .multiverse-node:focus-visible .multiverse-node__label,
 .multiverse-node--active .multiverse-node__label {
   opacity: 1;
+}
+
+.multiverse-node:hover .multiverse-node__tooltip,
+.multiverse-node:focus-visible .multiverse-node__tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .multiverse-node:focus-visible .multiverse-node__core {

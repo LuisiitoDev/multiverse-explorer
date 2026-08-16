@@ -156,23 +156,36 @@ describe('Multiverse Map', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows location details in the readout on hover', async () => {
+  it('shows location details in the hover card', async () => {
     mockMultiverseApi()
     const user = userEvent.setup()
     render(<App />)
     await openMultiverseMap(user)
 
-    await waitFor(() => {
-      expect(screen.getByText(/hover or select a location/i)).toBeInTheDocument()
-    })
+    const node = await screen.findByRole('button', { name: /Citadel of Ricks/i })
+    await user.hover(node)
 
-    await user.hover(screen.getByRole('button', { name: /Citadel of Ricks/i }))
+    const tooltip = within(node).getByRole('tooltip')
+    expect(tooltip).toHaveTextContent('Citadel of Ricks')
+    expect(tooltip).toHaveTextContent('Space station')
+    expect(tooltip).toHaveTextContent('unknown')
+    expect(tooltip).toHaveTextContent('2 residents')
+  })
 
-    const readout = within(screen.getByRole('status'))
-    expect(readout.getByText('Citadel of Ricks')).toBeInTheDocument()
-    expect(readout.getByText('Space station')).toBeInTheDocument()
-    expect(readout.getByText('unknown')).toBeInTheDocument()
-    expect(readout.getByText('2')).toBeInTheDocument()
+  it('shows a compact information card on the hovered node', async () => {
+    mockMultiverseApi()
+    const user = userEvent.setup()
+    render(<App />)
+    await openMultiverseMap(user)
+
+    const node = await screen.findByRole('button', { name: /Citadel of Ricks/i })
+    await user.hover(node)
+
+    const tooltip = within(node).getByRole('tooltip')
+    expect(tooltip).toHaveTextContent('Citadel of Ricks')
+    expect(tooltip).toHaveTextContent('Space station')
+    expect(tooltip).toHaveTextContent('unknown')
+    expect(tooltip).toHaveTextContent('2 residents')
   })
 
   it('shows the same details on keyboard focus, without any hover', async () => {
@@ -188,12 +201,24 @@ describe('Multiverse Map', () => {
     const node = screen.getByRole('button', { name: /Earth \(C-137\)/i })
     node.focus()
 
-    await waitFor(() => {
-      const readout = within(screen.getByRole('status'))
-      expect(readout.getByText('Earth (C-137)')).toBeInTheDocument()
-      expect(readout.getByText('Planet')).toBeInTheDocument()
-      expect(readout.getByText('Dimension C-137')).toBeInTheDocument()
-    })
+    const tooltip = within(node).getByRole('tooltip')
+    expect(tooltip).toHaveTextContent('Earth (C-137)')
+    expect(tooltip).toHaveTextContent('Planet')
+    expect(tooltip).toHaveTextContent('Dimension C-137')
+  })
+
+  it('supports zooming the map and resetting to the default scale', async () => {
+    mockMultiverseApi()
+    const user = userEvent.setup()
+    render(<App />)
+    await openMultiverseMap(user)
+
+    expect(screen.getByText('100%')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Zoom in' }))
+    expect(screen.getByText('125%')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Reset map zoom' }))
+    expect(screen.getByText('100%')).toBeInTheDocument()
   })
 
   it('opens a location and loads its residents on demand', async () => {

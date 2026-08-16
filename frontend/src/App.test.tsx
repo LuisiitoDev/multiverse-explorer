@@ -2,6 +2,17 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import FeatureFlagsProvider from './context/FeatureFlagsProvider'
+import { createStaticFeatureFlagStrategy } from './services/featureFlags'
+import type { FeatureFlagKey } from './types/featureFlag'
+
+function renderApp(flags: Partial<Record<FeatureFlagKey, boolean>> = {}) {
+  return render(
+    <FeatureFlagsProvider strategy={createStaticFeatureFlagStrategy(flags)}>
+      <App />
+    </FeatureFlagsProvider>,
+  )
+}
 
 const baseInfo = { count: 2, pages: 1, next: null, prev: null }
 
@@ -280,6 +291,32 @@ describe('App', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('hides the Character Modal V2 entry point when the feature flag is disabled', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      jsonResponse({ info: baseInfo, results: [mockRickWithEpisodeUrls] }),
+    )
+
+    const user = userEvent.setup()
+    renderApp({ characterModalV2: false })
+
+    await waitFor(() => {
+      expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /view details for rick sanchez/i }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Rick Sanchez')).toBeInTheDocument()
+    expect(
+      within(dialog).queryByRole('button', { name: /extended profile/i }),
+    ).not.toBeInTheDocument()
+
+    // The V2 episode request must not fire when the feature is off.
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes('/episode/')),
+    ).toBe(false)
+  })
+
   it('opens Character Modal V2 with appearances, grouped episodes, and can return to the summary modal', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = new URL(String(input))
@@ -292,7 +329,7 @@ describe('App', () => {
     })
 
     const user = userEvent.setup()
-    render(<App />)
+    renderApp({ characterModalV2: true })
 
     await waitFor(() => {
       expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
@@ -353,7 +390,7 @@ describe('App', () => {
     })
 
     const user = userEvent.setup()
-    render(<App />)
+    renderApp({ characterModalV2: true })
 
     await waitFor(() => {
       expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
@@ -400,7 +437,7 @@ describe('App', () => {
     })
 
     const user = userEvent.setup()
-    render(<App />)
+    renderApp({ characterModalV2: true })
 
     await waitFor(() => {
       expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()

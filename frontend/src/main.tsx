@@ -1,6 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import FeatureFlagsProvider from './context/FeatureFlagsProvider'
+import { createDefaultFeatureFlagStrategy } from './services/featureFlags'
 import './styles.css'
 
 const root = document.getElementById('root')
@@ -11,6 +13,8 @@ if (!root) {
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <App />
+    <FeatureFlagsProvider strategy={createDefaultFeatureFlagStrategy()}>
+      <App />
+    </FeatureFlagsProvider>
   </React.StrictMode>,
 )

@@ -8,6 +8,12 @@ RUN npm ci
 COPY . .
 
 FROM base AS build
+
+# Vite inlines VITE_* at build time, so feature flags must arrive as build args;
+# setting them on the running container would have no effect.
+ARG VITE_FEATURE_CHARACTER_MODAL_V2
+ENV VITE_FEATURE_CHARACTER_MODAL_V2=$VITE_FEATURE_CHARACTER_MODAL_V2
+
 RUN npm run build
 
 FROM nginx:1.27-alpine

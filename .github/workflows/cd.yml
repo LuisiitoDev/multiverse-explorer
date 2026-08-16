@@ -66,7 +66,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to Production
+    name: Deploy Candidate Revision
     runs-on: ubuntu-latest
     needs: publish
     steps:
@@ -77,23 +77,90 @@ jobs:
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy Image
+      # Revision names are <app>--<suffix>. Without an explicit suffix Azure
+      # generates a random hash, which cannot be targeted later by
+      # 'ingress traffic set'. The run number keeps the suffix unique so
+      # re-running CD on the same commit does not collide with itself.
+      - name: Compute revision name
+        id: revision
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          az containerapp update \
-              --name "${{ env.AZURE_CONTAINER_APP_NAME }}" \
-              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-              --image "ghcr.io/${OWNER}/react-github-actions-demo:${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-7)
+          SUFFIX="c${SHORT_SHA}-${RUN_NUMBER}"
+          echo "suffix=$SUFFIX" >> "$GITHUB_OUTPUT"
+          echo "name=${AZURE_CONTAINER_APP_NAME}--$SUFFIX" >> "$GITHUB_OUTPUT"
 
-      - name: Get application URL
-        id: appurl
+      # In Multiple revisions mode with traffic pinned to a named revision, a
+      # new revision is created with 0% traffic. Deployed, but not released.
+      - name: Deploy candidate revision (0% traffic)
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REVISION_SUFFIX: ${{ steps.revision.outputs.suffix }}
+        run: |
+          OWNER=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
+          az containerapp update \
+              --name "$AZURE_CONTAINER_APP_NAME" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --image "ghcr.io/${OWNER}/react-github-actions-demo:${HEAD_SHA}" \
+              --revision-suffix "$REVISION_SUFFIX"
+
+      # A label gives the candidate its own hostname without moving any traffic,
+      # which is what makes it testable before real users reach it.
+      - name: Label the candidate
+        env:
+          REVISION_NAME: ${{ steps.revision.outputs.name }}
+        run: |
+          az containerapp revision label add \
+              --name "$AZURE_CONTAINER_APP_NAME" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --revision "$REVISION_NAME" \
+              --label canary
+
+      - name: Resolve URLs
+        id: urls
         run: |
           FQDN=$(az containerapp show \
-              --name "${{ env.AZURE_CONTAINER_APP_NAME }}" \
-              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --name "$AZURE_CONTAINER_APP_NAME" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
               --query properties.configuration.ingress.fqdn -o tsv)
-          echo "url=https://$FQDN" >> "$GITHUB_OUTPUT"
+          echo "production=https://$FQDN" >> "$GITHUB_OUTPUT"
+          echo "canary=https://${FQDN/$AZURE_CONTAINER_APP_NAME/${AZURE_CONTAINER_APP_NAME}---canary}" >> "$GITHUB_OUTPUT"
 
-      - name: Publish application URL
+      # Fails the job if the candidate cannot serve its own root, so a broken
+      # revision is caught here rather than after traffic has been shifted.
+      - name: Smoke test the candidate
+        env:
+          CANARY_URL: ${{ steps.urls.outputs.canary }}
         run: |
-          echo "Production URL: ${{ steps.appurl.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          for attempt in 1 2 3 4 5 6; do
+            # minReplicas is 0, so the first request pays a cold start.
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$CANARY_URL/" || echo 000)
+            echo "attempt $attempt: HTTP $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 10
+          done
+
+          echo "Candidate did not return 200 at $CANARY_URL/" >&2
+          exit 1
+
+      - name: Summary
+        env:
+          REVISION_NAME: ${{ steps.revision.outputs.name }}
+          CANARY_URL: ${{ steps.urls.outputs.canary }}
+          PRODUCTION_URL: ${{ steps.urls.outputs.production }}
+        run: |
+          {
+            echo "### Candidate revision deployed"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Revision | \`$REVISION_NAME\` |"
+            echo "| Traffic | **0%** |"
+            echo "| Candidate URL | $CANARY_URL |"
+            echo "| Production URL | $PRODUCTION_URL |"
+            echo ""
+            echo "Traffic is unchanged. Run the **Canary Traffic** workflow to shift a percentage to this revision."
+          } >> "$GITHUB_STEP_SUMMARY"

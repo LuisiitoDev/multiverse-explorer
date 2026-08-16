@@ -99,20 +99,26 @@ export function fetchEpisodes({ name, season, page, signal }: FetchEpisodesOptio
   return fetchList<Episode>(EPISODE_URL, params, signal)
 }
 
-function episodeIdFromUrl(url: string): string {
-  return url.split('/').filter(Boolean).pop() ?? ''
+// Only numeric ids are interpolated into the request path, so unexpected values
+// from the API can never shape the URL we call.
+function episodeIdFromUrl(url: string): string | null {
+  const lastSegment = url.split('/').filter(Boolean).pop() ?? ''
+  return /^\d+$/.test(lastSegment) ? lastSegment : null
 }
 
 export async function fetchEpisodesByUrls(
   episodeUrls: string[],
   signal?: AbortSignal,
 ): Promise<Episode[]> {
-  if (episodeUrls.length === 0) {
+  const ids = episodeUrls
+    .map(episodeIdFromUrl)
+    .filter((id): id is string => id !== null)
+
+  if (ids.length === 0) {
     return []
   }
 
-  const ids = episodeUrls.map(episodeIdFromUrl).join(',')
-  const response = await fetch(`${EPISODE_URL}/${ids}`, { signal })
+  const response = await fetch(`${EPISODE_URL}/${ids.join(',')}`, { signal })
 
   if (!response.ok) {
     throw new Error('The data could not be loaded.')

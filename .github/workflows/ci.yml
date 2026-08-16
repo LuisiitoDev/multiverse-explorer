@@ -61,6 +61,11 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # SonarCloud reads coverage from lcov, so it has to exist before the scan.
+      - name: Run tests with coverage
+        working-directory: frontend
+        run: npm run test:coverage
+
       - name: Analyze Static Code with SonarCloud
         uses: SonarSource/sonarqube-scan-action@v6
         with:
@@ -68,6 +73,8 @@ jobs:
               -Dsonar.organization=luisiitodev
               -Dsonar.projectKey=luisiitodev
               -Dsonar.sources=.
+              -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+              -Dsonar.coverage.exclusions=**/*.test.tsx,**/*.test.ts,**/test/**,frontend/src/main.tsx,**/*.config.ts
         env:
           GIT_HUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

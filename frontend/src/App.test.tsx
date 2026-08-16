@@ -373,6 +373,49 @@ describe('App', () => {
     })
   })
 
+  it('requests only numeric episode ids, dropping malformed episode urls', async () => {
+    const requestedUrls: string[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const raw = String(input)
+      const url = new URL(raw)
+
+      if (url.pathname.includes('/episode/') && url.search === '') {
+        requestedUrls.push(raw)
+        return jsonResponse([mockEpisode])
+      }
+
+      return jsonResponse({
+        info: baseInfo,
+        results: [
+          {
+            ...mockRick,
+            episode: [
+              'https://rickandmortyapi.com/api/episode/1',
+              'https://rickandmortyapi.com/api/episode/not-a-number',
+              'https://rickandmortyapi.com/api/episode/2',
+            ],
+          },
+        ],
+      })
+    })
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /view details for rick sanchez/i }))
+    await user.click(screen.getByRole('button', { name: /extended profile/i }))
+
+    await waitFor(() => {
+      expect(requestedUrls).toHaveLength(1)
+    })
+
+    expect(requestedUrls[0]).toBe('https://rickandmortyapi.com/api/episode/1,2')
+  })
+
   it('loads more characters and hides the button once there is no next page', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = new URL(String(input))

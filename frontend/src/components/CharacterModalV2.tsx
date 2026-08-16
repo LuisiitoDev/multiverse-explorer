@@ -7,11 +7,11 @@ import LoadingPortal from './LoadingPortal'
 import Modal from './Modal'
 import StatusIcon from './StatusIcon'
 
-type CharacterModalV2Props = {
+type CharacterModalV2Props = Readonly<{
   character: Character
   onClose: () => void
   onCollapse: () => void
-}
+}>
 
 type SeasonGroup = {
   season: number
@@ -50,7 +50,7 @@ function CharacterModalV2({ character, onClose, onCollapse }: CharacterModalV2Pr
   )
   const seasonGroups = useMemo(() => groupEpisodesBySeason(sortedEpisodes), [sortedEpisodes])
   const firstAppearance = sortedEpisodes[0] ?? null
-  const latestAppearance = sortedEpisodes[sortedEpisodes.length - 1] ?? null
+  const latestAppearance = sortedEpisodes.at(-1) ?? null
 
   return (
     <Modal

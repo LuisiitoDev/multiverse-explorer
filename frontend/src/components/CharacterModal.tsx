@@ -2,11 +2,11 @@ import type { Character } from '../types/character'
 import Modal from './Modal'
 import StatusIcon from './StatusIcon'
 
-type CharacterModalProps = {
+type CharacterModalProps = Readonly<{
   character: Character
   onClose: () => void
   onExpand: () => void
-}
+}>
 
 function CharacterModal({ character, onClose, onExpand }: CharacterModalProps) {
   return (

@@ -102,7 +102,7 @@ export function fetchEpisodes({ name, season, page, signal }: FetchEpisodesOptio
 // Only numeric ids are interpolated into the request path, so unexpected values
 // from the API can never shape the URL we call.
 function episodeIdFromUrl(url: string): string | null {
-  const lastSegment = url.split('/').filter(Boolean).pop() ?? ''
+  const lastSegment = url.split('/').filter(Boolean).findLast(Boolean) ?? ''
   return /^\d+$/.test(lastSegment) ? lastSegment : null
 }
 

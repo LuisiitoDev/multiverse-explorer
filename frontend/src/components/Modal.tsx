@@ -1,12 +1,12 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
-type ModalProps = {
+type ModalProps = Readonly<{
   titleId: string
   onClose: () => void
   closeLabel: string
   children: ReactNode
   dialogClassName?: string
-}
+}>
 
 function Modal({ titleId, onClose, closeLabel, children, dialogClassName = '' }: ModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)

@@ -80,7 +80,10 @@ describe('connectionsBetween', () => {
     )
 
     connectionsBetween(nodes).forEach(([from], index) => {
-      expect(nodes.indexOf(from)).toBeLessThanOrEqual(index)
+      const placedAt = nodes.findIndex((node) => node.x === from.x && node.y === from.y)
+
+      expect(placedAt).toBeGreaterThanOrEqual(0)
+      expect(placedAt).toBeLessThanOrEqual(index)
     })
   })
 

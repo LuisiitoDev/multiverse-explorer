@@ -36,9 +36,12 @@ describe('Favorites / My Multiverse', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('loads an existing favorite as saved and prevents duplicate POSTs', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse([
-      { id: 10, resourceType: 'character', resourceId: 1, createAt: '2026-01-01' },
-    ])).mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/api/auth/providers')) return jsonResponse([{ name: 'google', displayName: 'Google' }])
+      if (url.includes('/api/favorites') && !init?.method) return jsonResponse([{ id: 10, resourceType: 'character', resourceId: 1, createAt: '2026-01-01' }])
+      return new Response(null, { status: 204 })
+    })
     const user = userEvent.setup()
     renderFavorites(<FavoriteButton resourceType="character" resourceId={1} />)
 
@@ -49,10 +52,13 @@ describe('Favorites / My Multiverse', () => {
   })
 
   it('adds and removes a character favorite through the backend contract', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse({ id: 11, resourceType: 'character', resourceId: 1, createAt: '2026-01-01' }, 201))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/api/auth/providers')) return jsonResponse([{ name: 'google', displayName: 'Google' }])
+      if (url.includes('/api/favorites') && init?.method === 'POST') return jsonResponse({ id: 11, resourceType: 'character', resourceId: 1, createAt: '2026-01-01' }, 201)
+      if (url.includes('/api/favorites') && init?.method === 'DELETE') return new Response(null, { status: 204 })
+      return jsonResponse([])
+    })
     const user = userEvent.setup()
     renderFavorites(<FavoriteButton resourceType="character" resourceId={1} />)
 
@@ -62,14 +68,38 @@ describe('Favorites / My Multiverse', () => {
     await user.click(screen.getByRole('button', { name: /remove from my multiverse/i }))
     await waitFor(() => expect(screen.getByText('Add to My Multiverse')).toBeInTheDocument())
 
-    expect(fetchMock.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ method: 'POST', credentials: 'include' }))
-    expect(fetchMock.mock.calls[2]?.[1]).toEqual(expect.objectContaining({ method: 'DELETE', credentials: 'include' }))
+    const favoriteCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/favorites'))
+    const postCall = favoriteCalls.find(([, init]) => (init as RequestInit)?.method === 'POST')
+    const deleteCall = favoriteCalls.find(([, init]) => (init as RequestInit)?.method === 'DELETE')
+    expect(postCall?.[1]).toEqual(expect.objectContaining({ method: 'POST', credentials: 'include' }))
+    expect(deleteCall?.[1]).toEqual(expect.objectContaining({ method: 'DELETE', credentials: 'include' }))
   })
 
-  it('shows the authenticated-only sign-in action after a 401', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({}, 401))
+  it('shows the authenticated-only sign-in action after a 401, using the first available provider', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/api/auth/providers')) return jsonResponse([{ name: 'google', displayName: 'Google' }])
+      return jsonResponse({}, 401)
+    })
     renderFavorites(<FavoriteButton resourceType="episode" resourceId={episode.id} />)
-    await waitFor(() => expect(screen.getByRole('link', { name: /sign in to save/i })).toBeInTheDocument())
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: /sign in/i })
+      expect(link).toBeInTheDocument()
+      expect(link).toHaveAttribute('href', expect.stringContaining('/api/auth/login/google'))
+    })
+  })
+
+  it('uses a non-Google provider when Google is not configured', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/api/auth/providers')) return jsonResponse([{ name: 'microsoft', displayName: 'Microsoft' }])
+      return jsonResponse({}, 401)
+    })
+    renderFavorites(<FavoriteButton resourceType="episode" resourceId={episode.id} />)
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: /microsoft/i })
+      expect(link).toHaveAttribute('href', expect.stringContaining('/api/auth/login/microsoft'))
+    })
   })
 
   it('groups mixed resource types and keeps empty sections visible', async () => {

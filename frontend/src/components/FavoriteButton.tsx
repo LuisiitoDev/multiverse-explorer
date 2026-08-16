@@ -1,6 +1,7 @@
 import { FaStar, FaRegStar } from 'react-icons/fa'
 import { useFavorites } from '../context/FavoritesProvider'
-import { googleLoginUrl } from '../services/authApi'
+import { useAuthProviders } from '../hooks/useAuthProviders'
+import { loginUrl } from '../services/authApi'
 import type { FavoriteResourceType } from '../types/favorite'
 
 type FavoriteButtonProps = Readonly<{
@@ -10,6 +11,7 @@ type FavoriteButtonProps = Readonly<{
 
 function FavoriteButton({ resourceType, resourceId }: FavoriteButtonProps) {
   const { isAuthenticated, pendingKey, find, add, remove } = useFavorites()
+  const { providers, isLoading: providersLoading } = useAuthProviders()
   const favorite = find(resourceType, resourceId)
   const isPending = pendingKey === `${resourceType}:${resourceId}` || pendingKey === `id:${favorite?.id}`
 
@@ -23,9 +25,19 @@ function FavoriteButton({ resourceType, resourceId }: FavoriteButtonProps) {
   }
 
   if (isAuthenticated === false) {
+    const provider = providers[0]
+
+    if (providersLoading || !provider) {
+      return (
+        <span className="favorite-action" aria-busy="true">
+          Sign in to save to My Multiverse
+        </span>
+      )
+    }
+
     return (
-      <a className="favorite-action" href={googleLoginUrl(window.location.pathname)}>
-        Sign in to save to My Multiverse
+      <a className="favorite-action" href={loginUrl(provider.name, window.location.pathname)}>
+        Sign in with {provider.displayName} to save to My Multiverse
       </a>
     )
   }

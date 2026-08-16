@@ -1,5 +1,6 @@
 import type { Location } from '../types/location'
 import { getAccentClass } from '../utils/accentColor'
+import FavoriteButton from './FavoriteButton'
 import Modal from './Modal'
 
 type LocationModalProps = {
@@ -24,6 +25,7 @@ function LocationModal({ location, onClose }: LocationModalProps) {
 
       <div className="modal-details">
         <h2 id="location-modal-title">{location.name}</h2>
+        <FavoriteButton resourceType="location" resourceId={location.id} />
         <dl>
           <div className="modal-row">
             <dt>Type</dt>

@@ -163,3 +163,10 @@ export function fetchCharactersByUrls(
 ): Promise<Character[]> {
   return fetchByUrls<Character>(CHARACTER_URL, characterUrls, signal)
 }
+
+export function fetchLocationsByUrls(
+  locationUrls: string[],
+  signal?: AbortSignal,
+): Promise<Location[]> {
+  return fetchByUrls<Location>(LOCATION_URL, locationUrls, signal)
+}

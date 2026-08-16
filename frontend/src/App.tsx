@@ -15,10 +15,12 @@ import Hero from './components/Hero'
 import LoadingPortal from './components/LoadingPortal'
 import LocationList from './components/LocationList'
 import LocationModal from './components/LocationModal'
+import MyMultiverseView from './components/MyMultiverseView'
 import MultiverseMapView from './components/MultiverseMapView'
 import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
 import SeasonFilter from './components/SeasonFilter'
+import { FavoritesProvider } from './context/FavoritesProvider'
 import { useCharacterFilters } from './hooks/useCharacterFilters'
 import { useDebouncedValue } from './hooks/useDebouncedValue'
 import { useFeatureFlag } from './hooks/useFeatureFlag'
@@ -48,7 +50,7 @@ function LocationsIcon() {
   )
 }
 
-function App() {
+function AppContent() {
   const [view, setView] = useState<View>('characters')
 
   const {
@@ -62,6 +64,7 @@ function App() {
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
   const [isCharacterModalExpanded, setIsCharacterModalExpanded] = useState(false)
   const isCharacterModalV2Enabled = useFeatureFlag('characterModalV2')
+  const isMyMultiverseEnabled = useFeatureFlag('myMultiverse')
 
   const charactersResource = usePaginatedResource<Character>(
     (page, signal) => fetchCharacters({ ...appliedCharacterFilters, page, signal }),
@@ -121,7 +124,7 @@ function App() {
 
   return (
     <>
-      <Header activeView={view} onNavigate={setView} />
+      <Header activeView={view} onNavigate={setView} showMyMultiverse={isMyMultiverseEnabled} />
 
       <main className="page-shell">
         <Hero
@@ -281,6 +284,14 @@ function App() {
           )}
 
           {view === 'multiverse-map' && <MultiverseMapView />}
+
+          {view === 'my-multiverse' && isMyMultiverseEnabled && (
+            <MyMultiverseView
+              onCharacterSelect={handleSelectCharacter}
+              onEpisodeSelect={setSelectedEpisode}
+              onLocationSelect={setSelectedLocation}
+            />
+          )}
         </div>
 
         <DeploymentStatus />
@@ -311,6 +322,14 @@ function App() {
         <EpisodeModal episode={selectedEpisode} onClose={() => setSelectedEpisode(null)} />
       )}
     </>
+  )
+}
+
+function App() {
+  return (
+    <FavoritesProvider>
+      <AppContent />
+    </FavoritesProvider>
   )
 }
 

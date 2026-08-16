@@ -1,5 +1,6 @@
 import type { Character } from '../types/character'
 import CharacterOverview from './CharacterOverview'
+import FavoriteButton from './FavoriteButton'
 import Modal from './Modal'
 
 type CharacterModalProps = Readonly<{
@@ -26,6 +27,7 @@ function CharacterModal({ character, onClose, onExpand }: CharacterModalProps) {
             </button>
           )}
         </div>
+        <FavoriteButton resourceType="character" resourceId={character.id} />
         <CharacterOverview character={character} />
       </div>
     </Modal>

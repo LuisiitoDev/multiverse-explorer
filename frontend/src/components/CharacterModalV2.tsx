@@ -3,9 +3,9 @@ import { useCharacterEpisodes } from '../hooks/useCharacterEpisodes'
 import type { Character } from '../types/character'
 import type { Episode } from '../types/episode'
 import ErrorState from './ErrorState'
+import CharacterOverview from './CharacterOverview'
 import LoadingPortal from './LoadingPortal'
 import Modal from './Modal'
-import StatusIcon from './StatusIcon'
 
 type CharacterModalV2Props = Readonly<{
   character: Character
@@ -72,37 +72,12 @@ function CharacterModalV2({ character, onClose, onCollapse }: CharacterModalV2Pr
           </button>
         </div>
 
-        <dl>
-          <div className="modal-row">
-            <dt>Status</dt>
-            <dd>
-              <span className={`status-pill status-pill--${character.status.toLowerCase()}`}>
-                <StatusIcon status={character.status} />
-                {character.status}
-              </span>
-            </dd>
-          </div>
-          <div className="modal-row">
-            <dt>Species</dt>
-            <dd>{character.species}</dd>
-          </div>
-          <div className="modal-row">
-            <dt>Gender</dt>
-            <dd>{character.gender}</dd>
-          </div>
-          <div className="modal-row modal-row--stacked">
-            <dt>Origin</dt>
-            <dd>{character.origin.name}</dd>
-          </div>
-          <div className="modal-row modal-row--stacked">
-            <dt>Last known location</dt>
-            <dd>{character.location.name}</dd>
-          </div>
-          <div className="modal-row">
-            <dt>Appearances</dt>
-            <dd>{character.episode.length}</dd>
-          </div>
-        </dl>
+        <CharacterOverview
+          character={character}
+          locationLabel="Last known location"
+          episodeLabel="Appearances"
+          stackLocationRows
+        />
 
         {isLoading && <LoadingPortal />}
 

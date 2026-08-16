@@ -5,6 +5,7 @@ const GITHUB_REPO_URL = 'https://github.com/LuisiitoDev/react-github-actions-dem
 type HeaderProps = {
   activeView: View
   onNavigate: (view: View) => void
+  showMyMultiverse: boolean
 }
 
 function ExploreIcon() {
@@ -94,6 +95,10 @@ function MultiverseMapIcon() {
   )
 }
 
+function FavoritesIcon() {
+  return <span aria-hidden="true">★</span>
+}
+
 function SwirlIcon() {
   return (
     <svg
@@ -111,7 +116,7 @@ function SwirlIcon() {
   )
 }
 
-function Header({ activeView, onNavigate }: HeaderProps) {
+function Header({ activeView, onNavigate, showMyMultiverse }: HeaderProps) {
   const isCharactersView = activeView === 'characters'
 
   return (
@@ -169,6 +174,16 @@ function Header({ activeView, onNavigate }: HeaderProps) {
           <MultiverseMapIcon />
           Multiverse Map
         </button>
+        {showMyMultiverse && (
+          <button
+            type="button"
+            className={`site-nav__link ${activeView === 'my-multiverse' ? 'site-nav__link--active' : ''}`}
+            onClick={() => onNavigate('my-multiverse')}
+          >
+            <FavoritesIcon />
+            My Multiverse
+          </button>
+        )}
       </nav>
 
       <div className="header-status">

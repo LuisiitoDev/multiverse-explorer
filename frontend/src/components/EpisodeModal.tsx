@@ -1,5 +1,6 @@
 import type { Episode } from '../types/episode'
 import { getAccentClass } from '../utils/accentColor'
+import FavoriteButton from './FavoriteButton'
 import Modal from './Modal'
 
 type EpisodeModalProps = {
@@ -28,6 +29,7 @@ function EpisodeModal({ episode, onClose }: EpisodeModalProps) {
 
       <div className="modal-details">
         <h2 id="episode-modal-title">{episode.name}</h2>
+        <FavoriteButton resourceType="episode" resourceId={episode.id} />
         <dl>
           <div className="modal-row">
             <dt>Code</dt>

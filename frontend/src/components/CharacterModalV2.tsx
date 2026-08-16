@@ -4,6 +4,7 @@ import type { Character } from '../types/character'
 import type { Episode } from '../types/episode'
 import ErrorState from './ErrorState'
 import CharacterOverview from './CharacterOverview'
+import FavoriteButton from './FavoriteButton'
 import LoadingPortal from './LoadingPortal'
 import Modal from './Modal'
 
@@ -71,6 +72,7 @@ function CharacterModalV2({ character, onClose, onCollapse }: CharacterModalV2Pr
             &larr; Summary view
           </button>
         </div>
+        <FavoriteButton resourceType="character" resourceId={character.id} />
 
         <CharacterOverview
           character={character}

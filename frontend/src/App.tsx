@@ -15,10 +15,12 @@ import Hero from './components/Hero'
 import LoadingPortal from './components/LoadingPortal'
 import LocationList from './components/LocationList'
 import LocationModal from './components/LocationModal'
+import MyMultiverseView from './components/MyMultiverseView'
 import MultiverseMapView from './components/MultiverseMapView'
 import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
 import SeasonFilter from './components/SeasonFilter'
+import { FavoritesProvider } from './context/FavoritesProvider'
 import { useCharacterFilters } from './hooks/useCharacterFilters'
 import { useDebouncedValue } from './hooks/useDebouncedValue'
 import { useFeatureFlag } from './hooks/useFeatureFlag'
@@ -48,7 +50,179 @@ function LocationsIcon() {
   )
 }
 
-function App() {
+// ── Per-view panel components ─────────────────────────────────────────────────
+
+type CharactersViewProps = Readonly<{
+  filters: ReturnType<typeof useCharacterFilters>['filters']
+  onFilterChange: ReturnType<typeof useCharacterFilters>['setFilter']
+  onReset: () => void
+  hasActiveFilters: boolean
+  resource: ReturnType<typeof usePaginatedResource<Character>>
+  onSelect: (character: Character) => void
+}>
+
+function CharactersView({ filters, onFilterChange, onReset, hasActiveFilters, resource, onSelect }: CharactersViewProps) {
+  return (
+    <>
+      <CharacterFilterPanel
+        filters={filters}
+        onFilterChange={onFilterChange}
+        onReset={onReset}
+        hasActiveFilters={hasActiveFilters}
+      />
+
+      {resource.isLoading && <LoadingPortal />}
+
+      {!resource.isLoading && resource.error && (
+        <ErrorState message={resource.error} onRetry={resource.retry} />
+      )}
+
+      {!resource.isLoading && !resource.error && resource.items.length === 0 && (
+        <EmptyState onResetFilters={onReset} />
+      )}
+
+      {!resource.isLoading && !resource.error && resource.items.length > 0 && (
+        <>
+          <CharacterGrid characters={resource.items} onSelect={onSelect} />
+
+          {resource.hasNextPage && (
+            <div className="load-more">
+              <button
+                type="button"
+                className="load-more__button"
+                onClick={() => void resource.loadMore()}
+                disabled={resource.isLoadingMore}
+              >
+                {resource.isLoadingMore ? 'Loading...' : 'Load More Characters'}
+              </button>
+              {resource.loadMoreError && (
+                <p className="load-more__error">{resource.loadMoreError}</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
+type LocationsViewProps = Readonly<{
+  searchInput: string
+  onSearchChange: (value: string) => void
+  resource: ReturnType<typeof usePaginatedResource<Location>>
+  onSelect: (location: Location) => void
+}>
+
+function LocationsView({ searchInput, onSearchChange, resource, onSelect }: LocationsViewProps) {
+  return (
+    <ArchivePanel
+      icon={<LocationsIcon />}
+      title="Coordinate Archive"
+      subtitle="Mapped locations across known dimensions."
+    >
+      <div className="controls">
+        <SearchBar
+          value={searchInput}
+          onChange={onSearchChange}
+          placeholder="Search locations..."
+          ariaLabel="Search locations by name"
+        />
+      </div>
+
+      {resource.isLoading && <LoadingPortal />}
+
+      {!resource.isLoading && resource.error && (
+        <ErrorState message={resource.error} onRetry={resource.retry} />
+      )}
+
+      {!resource.isLoading && !resource.error && resource.items.length === 0 && (
+        <EmptyState
+          title="No Coordinates Found"
+          message="Try another location name."
+          onResetFilters={() => onSearchChange('')}
+        />
+      )}
+
+      {!resource.isLoading && !resource.error && resource.items.length > 0 && (
+        <>
+          <LocationList locations={resource.items} onSelect={onSelect} />
+
+          {resource.totalPages && resource.totalPages > 1 && (
+            <Pagination
+              page={resource.page}
+              totalPages={resource.totalPages}
+              onPageChange={(page) => void resource.goToPage(page)}
+            />
+          )}
+        </>
+      )}
+    </ArchivePanel>
+  )
+}
+
+type EpisodesViewProps = Readonly<{
+  searchInput: string
+  onSearchChange: (value: string) => void
+  season: number | null
+  onSeasonChange: (season: number | null) => void
+  resource: ReturnType<typeof usePaginatedResource<Episode>>
+  onSelect: (episode: Episode) => void
+}>
+
+function EpisodesView({ searchInput, onSearchChange, season, onSeasonChange, resource, onSelect }: EpisodesViewProps) {
+  return (
+    <ArchivePanel
+      icon={<EpisodesIcon />}
+      title="Transmission Archive"
+      subtitle="Recorded incidents across known dimensions."
+    >
+      <div className="controls">
+        <SearchBar
+          value={searchInput}
+          onChange={onSearchChange}
+          placeholder="Search episodes..."
+          ariaLabel="Search episodes by name"
+        />
+        <SeasonFilter value={season} onChange={onSeasonChange} />
+      </div>
+
+      {resource.isLoading && <LoadingPortal />}
+
+      {!resource.isLoading && resource.error && (
+        <ErrorState message={resource.error} onRetry={resource.retry} />
+      )}
+
+      {!resource.isLoading && !resource.error && resource.items.length === 0 && (
+        <EmptyState
+          title="No Broadcasts Found"
+          message="Try another episode name or season."
+          onResetFilters={() => {
+            onSearchChange('')
+            onSeasonChange(null)
+          }}
+        />
+      )}
+
+      {!resource.isLoading && !resource.error && resource.items.length > 0 && (
+        <>
+          <EpisodeList episodes={resource.items} onSelect={onSelect} />
+
+          {resource.totalPages && resource.totalPages > 1 && (
+            <Pagination
+              page={resource.page}
+              totalPages={resource.totalPages}
+              onPageChange={(page) => void resource.goToPage(page)}
+            />
+          )}
+        </>
+      )}
+    </ArchivePanel>
+  )
+}
+
+// ── Main app content ──────────────────────────────────────────────────────────
+
+function AppContent() {
   const [view, setView] = useState<View>('characters')
 
   const {
@@ -62,6 +236,7 @@ function App() {
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
   const [isCharacterModalExpanded, setIsCharacterModalExpanded] = useState(false)
   const isCharacterModalV2Enabled = useFeatureFlag('characterModalV2')
+  const isMyMultiverseEnabled = useFeatureFlag('myMultiverse')
 
   const charactersResource = usePaginatedResource<Character>(
     (page, signal) => fetchCharacters({ ...appliedCharacterFilters, page, signal }),
@@ -105,7 +280,8 @@ function App() {
   // the two modals mutually exclusive even if the flag flips mid-session.
   const showCharacterModalV2 = isCharacterModalV2Enabled && isCharacterModalExpanded
 
-  // The Multiverse Map owns its own data, so it contributes no hero stats.
+  // The Multiverse Map and My Multiverse views own their own data, so they
+  // contribute no hero stats.
   let activeResource = null
   switch (view) {
     case 'characters':
@@ -119,9 +295,51 @@ function App() {
       break
   }
 
+  // View registry — add new views here without touching the render tree below.
+  const viewRegistry: Partial<Record<View, React.ReactNode>> = {
+    characters: (
+      <CharactersView
+        filters={characterFilters}
+        onFilterChange={setCharacterFilter}
+        onReset={resetCharacterFilters}
+        hasActiveFilters={hasActiveCharacterFilters}
+        resource={charactersResource}
+        onSelect={handleSelectCharacter}
+      />
+    ),
+    locations: (
+      <LocationsView
+        searchInput={locationSearchInput}
+        onSearchChange={setLocationSearchInput}
+        resource={locationsResource}
+        onSelect={setSelectedLocation}
+      />
+    ),
+    episodes: (
+      <EpisodesView
+        searchInput={episodeSearchInput}
+        onSearchChange={setEpisodeSearchInput}
+        season={episodeSeason}
+        onSeasonChange={setEpisodeSeason}
+        resource={episodesResource}
+        onSelect={setSelectedEpisode}
+      />
+    ),
+    'multiverse-map': <MultiverseMapView />,
+    ...(isMyMultiverseEnabled && {
+      'my-multiverse': (
+        <MyMultiverseView
+          onCharacterSelect={handleSelectCharacter}
+          onEpisodeSelect={setSelectedEpisode}
+          onLocationSelect={setSelectedLocation}
+        />
+      ),
+    }),
+  }
+
   return (
     <>
-      <Header activeView={view} onNavigate={setView} />
+      <Header activeView={view} onNavigate={setView} showMyMultiverse={isMyMultiverseEnabled} />
 
       <main className="page-shell">
         <Hero
@@ -131,156 +349,7 @@ function App() {
         />
 
         <div className="content" id="content">
-          {view === 'characters' && (
-            <>
-              <CharacterFilterPanel
-                filters={characterFilters}
-                onFilterChange={setCharacterFilter}
-                onReset={resetCharacterFilters}
-                hasActiveFilters={hasActiveCharacterFilters}
-              />
-
-              {charactersResource.isLoading && <LoadingPortal />}
-
-              {!charactersResource.isLoading && charactersResource.error && (
-                <ErrorState message={charactersResource.error} onRetry={charactersResource.retry} />
-              )}
-
-              {!charactersResource.isLoading &&
-                !charactersResource.error &&
-                charactersResource.items.length === 0 && (
-                  <EmptyState onResetFilters={resetCharacterFilters} />
-                )}
-
-              {!charactersResource.isLoading &&
-                !charactersResource.error &&
-                charactersResource.items.length > 0 && (
-                  <>
-                    <CharacterGrid characters={charactersResource.items} onSelect={handleSelectCharacter} />
-
-                    {charactersResource.hasNextPage && (
-                      <div className="load-more">
-                        <button
-                          type="button"
-                          className="load-more__button"
-                          onClick={() => void charactersResource.loadMore()}
-                          disabled={charactersResource.isLoadingMore}
-                        >
-                          {charactersResource.isLoadingMore ? 'Loading...' : 'Load More Characters'}
-                        </button>
-                        {charactersResource.loadMoreError && (
-                          <p className="load-more__error">{charactersResource.loadMoreError}</p>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-            </>
-          )}
-
-          {view === 'locations' && (
-            <ArchivePanel
-              icon={<LocationsIcon />}
-              title="Coordinate Archive"
-              subtitle="Mapped locations across known dimensions."
-            >
-              <div className="controls">
-                <SearchBar
-                  value={locationSearchInput}
-                  onChange={setLocationSearchInput}
-                  placeholder="Search locations..."
-                  ariaLabel="Search locations by name"
-                />
-              </div>
-
-              {locationsResource.isLoading && <LoadingPortal />}
-
-              {!locationsResource.isLoading && locationsResource.error && (
-                <ErrorState message={locationsResource.error} onRetry={locationsResource.retry} />
-              )}
-
-              {!locationsResource.isLoading &&
-                !locationsResource.error &&
-                locationsResource.items.length === 0 && (
-                  <EmptyState
-                    title="No Coordinates Found"
-                    message="Try another location name."
-                    onResetFilters={() => setLocationSearchInput('')}
-                  />
-                )}
-
-              {!locationsResource.isLoading &&
-                !locationsResource.error &&
-                locationsResource.items.length > 0 && (
-                  <>
-                    <LocationList locations={locationsResource.items} onSelect={setSelectedLocation} />
-
-                    {locationsResource.totalPages && locationsResource.totalPages > 1 && (
-                      <Pagination
-                        page={locationsResource.page}
-                        totalPages={locationsResource.totalPages}
-                        onPageChange={(page) => void locationsResource.goToPage(page)}
-                      />
-                    )}
-                  </>
-                )}
-            </ArchivePanel>
-          )}
-
-          {view === 'episodes' && (
-            <ArchivePanel
-              icon={<EpisodesIcon />}
-              title="Transmission Archive"
-              subtitle="Recorded incidents across known dimensions."
-            >
-              <div className="controls">
-                <SearchBar
-                  value={episodeSearchInput}
-                  onChange={setEpisodeSearchInput}
-                  placeholder="Search episodes..."
-                  ariaLabel="Search episodes by name"
-                />
-                <SeasonFilter value={episodeSeason} onChange={setEpisodeSeason} />
-              </div>
-
-              {episodesResource.isLoading && <LoadingPortal />}
-
-              {!episodesResource.isLoading && episodesResource.error && (
-                <ErrorState message={episodesResource.error} onRetry={episodesResource.retry} />
-              )}
-
-              {!episodesResource.isLoading &&
-                !episodesResource.error &&
-                episodesResource.items.length === 0 && (
-                  <EmptyState
-                    title="No Broadcasts Found"
-                    message="Try another episode name or season."
-                    onResetFilters={() => {
-                      setEpisodeSearchInput('')
-                      setEpisodeSeason(null)
-                    }}
-                  />
-                )}
-
-              {!episodesResource.isLoading &&
-                !episodesResource.error &&
-                episodesResource.items.length > 0 && (
-                  <>
-                    <EpisodeList episodes={episodesResource.items} onSelect={setSelectedEpisode} />
-
-                    {episodesResource.totalPages && episodesResource.totalPages > 1 && (
-                      <Pagination
-                        page={episodesResource.page}
-                        totalPages={episodesResource.totalPages}
-                        onPageChange={(page) => void episodesResource.goToPage(page)}
-                      />
-                    )}
-                  </>
-                )}
-            </ArchivePanel>
-          )}
-
-          {view === 'multiverse-map' && <MultiverseMapView />}
+          {viewRegistry[view]}
         </div>
 
         <DeploymentStatus />
@@ -311,6 +380,14 @@ function App() {
         <EpisodeModal episode={selectedEpisode} onClose={() => setSelectedEpisode(null)} />
       )}
     </>
+  )
+}
+
+function App() {
+  return (
+    <FavoritesProvider>
+      <AppContent />
+    </FavoritesProvider>
   )
 }
 

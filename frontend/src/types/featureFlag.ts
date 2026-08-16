@@ -2,7 +2,7 @@
  * Keys are declared here so a flag cannot be referenced without being defined.
  * Adding a flag is a one-line change; every strategy stays untouched.
  */
-export type FeatureFlagKey = 'characterModalV2'
+export type FeatureFlagKey = 'characterModalV2' | 'myMultiverse'
 
 /**
  * `undefined` means "this strategy has no opinion", which is what lets

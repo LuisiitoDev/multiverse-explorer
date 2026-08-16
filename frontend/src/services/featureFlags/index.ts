@@ -12,6 +12,7 @@ export { createStaticFeatureFlagStrategy } from './staticFeatureFlagStrategy'
  */
 export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, boolean> = {
   characterModalV2: false,
+  myMultiverse: true,
 }
 
 /**

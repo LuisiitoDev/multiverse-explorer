@@ -2,6 +2,7 @@ import type { FeatureFlagKey, FeatureFlagStrategy } from '../../types/featureFla
 
 const ENV_VAR_BY_FLAG: Record<FeatureFlagKey, string> = {
   characterModalV2: 'VITE_FEATURE_CHARACTER_MODAL_V2',
+  myMultiverse: 'VITE_FEATURE_MY_MULTIVERSE',
 }
 
 const TRUTHY = new Set(['true', '1', 'on', 'enabled'])

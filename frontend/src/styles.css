@@ -1202,6 +1202,96 @@ p {
   outline: none;
 }
 
+.favorite-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(245, 197, 66, 0.65);
+  border-radius: 0.5rem;
+  background: rgba(245, 197, 66, 0.08);
+  color: var(--amber);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.favorite-action:hover,
+.favorite-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 14px rgba(245, 197, 66, 0.3);
+}
+
+.favorite-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.my-multiverse {
+  padding: 1.25rem 0 3rem;
+}
+
+.my-multiverse h1,
+.my-multiverse h2 {
+  color: var(--portal-green);
+}
+
+.my-multiverse__section {
+  margin-top: 2rem;
+}
+
+.my-multiverse__section h2 {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.my-multiverse__empty,
+.my-multiverse__notice {
+  color: var(--text-secondary);
+}
+
+.my-multiverse__notice {
+  padding: 0.75rem 1rem;
+  border-left: 2px solid var(--amber);
+  background: rgba(245, 197, 66, 0.08);
+}
+
+.my-multiverse__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.my-multiverse__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-height: 5rem;
+  padding: 1rem;
+  border: 1px solid rgba(54, 217, 255, 0.18);
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.52);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.my-multiverse__item:hover,
+.my-multiverse__item:focus-visible {
+  border-color: var(--cyan);
+  outline: none;
+  box-shadow: 0 0 18px rgba(54, 217, 255, 0.15);
+}
+
+.my-multiverse__item span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
 /* ===== Season filter ===== */
 
 .season-filter {

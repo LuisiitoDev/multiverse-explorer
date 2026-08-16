@@ -5,9 +5,10 @@ type ModalProps = {
   onClose: () => void
   closeLabel: string
   children: ReactNode
+  dialogClassName?: string
 }
 
-function Modal({ titleId, onClose, closeLabel, children }: ModalProps) {
+function Modal({ titleId, onClose, closeLabel, children, dialogClassName = '' }: ModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const previouslyFocusedElement = useRef<HTMLElement | null>(null)
 
@@ -32,7 +33,7 @@ function Modal({ titleId, onClose, closeLabel, children }: ModalProps) {
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="modal-dialog"
+        className={`modal-dialog ${dialogClassName}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

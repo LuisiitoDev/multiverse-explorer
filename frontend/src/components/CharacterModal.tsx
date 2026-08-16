@@ -5,9 +5,10 @@ import StatusIcon from './StatusIcon'
 type CharacterModalProps = {
   character: Character
   onClose: () => void
+  onExpand: () => void
 }
 
-function CharacterModal({ character, onClose }: CharacterModalProps) {
+function CharacterModal({ character, onClose, onExpand }: CharacterModalProps) {
   return (
     <Modal titleId="character-modal-title" onClose={onClose} closeLabel="Close character details">
       <div className="modal-stage">
@@ -16,7 +17,12 @@ function CharacterModal({ character, onClose }: CharacterModalProps) {
       </div>
 
       <div className="modal-details">
-        <h2 id="character-modal-title">{character.name}</h2>
+        <div className="modal-details__header">
+          <h2 id="character-modal-title">{character.name}</h2>
+          <button type="button" className="modal-details__toggle" onClick={onExpand}>
+            Extended profile &rarr;
+          </button>
+        </div>
         <dl>
           <div className="modal-row">
             <dt>Status</dt>

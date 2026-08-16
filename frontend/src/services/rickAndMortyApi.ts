@@ -98,3 +98,26 @@ export function fetchEpisodes({ name, season, page, signal }: FetchEpisodesOptio
 
   return fetchList<Episode>(EPISODE_URL, params, signal)
 }
+
+function episodeIdFromUrl(url: string): string {
+  return url.split('/').filter(Boolean).pop() ?? ''
+}
+
+export async function fetchEpisodesByUrls(
+  episodeUrls: string[],
+  signal?: AbortSignal,
+): Promise<Episode[]> {
+  if (episodeUrls.length === 0) {
+    return []
+  }
+
+  const ids = episodeUrls.map(episodeIdFromUrl).join(',')
+  const response = await fetch(`${EPISODE_URL}/${ids}`, { signal })
+
+  if (!response.ok) {
+    throw new Error('The data could not be loaded.')
+  }
+
+  const data: Episode | Episode[] = await response.json()
+  return Array.isArray(data) ? data : [data]
+}

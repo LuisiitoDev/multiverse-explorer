@@ -78,10 +78,13 @@ function squaredDistanceBetween(a: MapPosition, b: MapPosition): number {
 export function connectionsBetween<TItem>(nodes: MapNode<TItem>[]): [MapPosition, MapPosition][] {
   return nodes.slice(1).map((node, offset): [MapPosition, MapPosition] => {
     const placed = nodes.slice(0, offset + 1)
-    const nearest = placed.reduce((closest, candidate) =>
-      squaredDistanceBetween(candidate, node) < squaredDistanceBetween(closest, node)
-        ? candidate
-        : closest,
+    const [firstPlaced, ...remainingPlaced] = placed
+    const nearest = remainingPlaced.reduce(
+      (closest, candidate) =>
+        squaredDistanceBetween(candidate, node) < squaredDistanceBetween(closest, node)
+          ? candidate
+          : closest,
+      firstPlaced,
     )
 
     return [nearest, node]

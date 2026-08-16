@@ -106,14 +106,18 @@ function App() {
   const showCharacterModalV2 = isCharacterModalV2Enabled && isCharacterModalExpanded
 
   // The Multiverse Map owns its own data, so it contributes no hero stats.
-  const activeResource =
-    view === 'characters'
-      ? charactersResource
-      : view === 'locations'
-        ? locationsResource
-        : view === 'episodes'
-          ? episodesResource
-          : null
+  let activeResource = null
+  switch (view) {
+    case 'characters':
+      activeResource = charactersResource
+      break
+    case 'locations':
+      activeResource = locationsResource
+      break
+    case 'episodes':
+      activeResource = episodesResource
+      break
+  }
 
   return (
     <>

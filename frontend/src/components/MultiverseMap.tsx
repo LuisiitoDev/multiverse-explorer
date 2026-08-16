@@ -48,9 +48,9 @@ function MultiverseMap({
           <MultiverseStarfield />
 
           <g className="multiverse-map__paths">
-            {connections.map(([from, to], index) => (
+            {connections.map(([from, to]) => (
               <line
-                key={index}
+                key={`${from.x}:${from.y}-${to.x}:${to.y}`}
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}

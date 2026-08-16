@@ -22,7 +22,7 @@ function LocationDetailPanel({ location, onClose }: LocationDetailPanelProps) {
       titleId="multiverse-location-title"
       onClose={onClose}
       closeLabel="Close location details"
-      dialogClassName="modal-dialog--v2"
+      dialogClassName="modal-dialog--v2 modal-dialog--map"
     >
       <div className="modal-stage">
         <div

@@ -1746,6 +1746,16 @@ p {
 
 /* ===== Multiverse Map ===== */
 
+/* A long resident roster stretches the dialog, so the glyph is pinned to the
+   top of its column instead of drifting to the bottom of a tall empty stage. */
+.modal-dialog--map .modal-stage {
+  align-self: start;
+  position: sticky;
+  top: 0;
+  min-height: 0;
+}
+
+
 .multiverse-view {
   display: flex;
   flex-direction: column;

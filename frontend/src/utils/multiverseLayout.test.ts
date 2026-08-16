@@ -64,15 +64,39 @@ describe('layoutNodes', () => {
 })
 
 describe('connectionsBetween', () => {
-  it('chains consecutive nodes', () => {
+  it('gives every node after the first exactly one edge', () => {
     const nodes = layoutNodes(locations)
     const connections = connectionsBetween(nodes)
 
-    expect(connections).toHaveLength(2)
-    expect(connections[0][0]).toBe(nodes[0])
-    expect(connections[0][1]).toBe(nodes[1])
-    expect(connections[1][0]).toBe(nodes[1])
-    expect(connections[1][1]).toBe(nodes[2])
+    expect(connections).toHaveLength(nodes.length - 1)
+    connections.forEach(([, to], index) => {
+      expect(to).toBe(nodes[index + 1])
+    })
+  })
+
+  it('always links back to an already-placed node, keeping the figure connected', () => {
+    const nodes = layoutNodes(
+      Array.from({ length: 20 }, (_, index) => ({ id: index * 3 + 1 })),
+    )
+
+    connectionsBetween(nodes).forEach(([from], index) => {
+      expect(nodes.indexOf(from)).toBeLessThanOrEqual(index)
+    })
+  })
+
+  it('prefers the nearest earlier node over the previous one', () => {
+    const nodes = layoutNodes(Array.from({ length: 12 }, (_, index) => ({ id: index + 1 })))
+    const connections = connectionsBetween(nodes)
+
+    connections.forEach(([from], offset) => {
+      const target = nodes[offset + 1]
+      const distanceTo = (node: { x: number; y: number }) =>
+        (node.x - target.x) ** 2 + (node.y - target.y) ** 2
+
+      nodes.slice(0, offset + 1).forEach((candidate) => {
+        expect(distanceTo(from)).toBeLessThanOrEqual(distanceTo(candidate))
+      })
+    })
   })
 
   it('returns nothing when there is fewer than one pair', () => {

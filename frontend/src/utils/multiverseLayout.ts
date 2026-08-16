@@ -61,12 +61,29 @@ export function layoutNodes<TItem extends { id: number }>(items: TItem[]): MapNo
   }))
 }
 
+function squaredDistanceBetween(a: MapPosition, b: MapPosition): number {
+  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2
+}
+
 /**
- * Connects each node to the one before it, so the spiral reads as a route
- * through the multiverse rather than as scattered dots.
+ * Links each node to the nearest of the nodes placed before it, producing a
+ * connected constellation rather than scattered dots.
+ *
+ * Chaining nodes in spiral order instead would be simpler, but consecutive
+ * points on a phyllotaxis spiral are far apart, so the map ends up webbed with
+ * long crossing lines. Nearest-earlier-neighbour keeps every edge short while
+ * still guaranteeing a single connected figure with exactly one edge per node
+ * after the first.
  */
 export function connectionsBetween<TItem>(nodes: MapNode<TItem>[]): [MapPosition, MapPosition][] {
-  return nodes
-    .slice(1)
-    .map((node, index): [MapPosition, MapPosition] => [nodes[index], node])
+  return nodes.slice(1).map((node, offset): [MapPosition, MapPosition] => {
+    const placed = nodes.slice(0, offset + 1)
+    const nearest = placed.reduce((closest, candidate) =>
+      squaredDistanceBetween(candidate, node) < squaredDistanceBetween(closest, node)
+        ? candidate
+        : closest,
+    )
+
+    return [nearest, node]
+  })
 }

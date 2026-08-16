@@ -2,6 +2,7 @@ import { useState } from 'react'
 import ArchivePanel from './components/ArchivePanel'
 import CharacterGrid from './components/CharacterGrid'
 import CharacterModal from './components/CharacterModal'
+import CharacterModalV2 from './components/CharacterModalV2'
 import DeploymentStatus from './components/DeploymentStatus'
 import EmptyState from './components/EmptyState'
 import EpisodeList from './components/EpisodeList'
@@ -51,6 +52,7 @@ function App() {
   const debouncedCharacterSearch = useDebouncedValue(characterSearchInput, 400).trim()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
+  const [isCharacterModalExpanded, setIsCharacterModalExpanded] = useState(false)
 
   const charactersResource = usePaginatedResource<Character>(
     (page, signal) =>
@@ -80,6 +82,16 @@ function App() {
     `${debouncedEpisodeSearch}::${episodeSeason ?? 'all'}`,
     view === 'episodes',
   )
+
+  const handleSelectCharacter = (character: Character) => {
+    setSelectedCharacter(character)
+    setIsCharacterModalExpanded(false)
+  }
+
+  const handleCloseCharacterModal = () => {
+    setSelectedCharacter(null)
+    setIsCharacterModalExpanded(false)
+  }
 
   const activeResource =
     view === 'characters'
@@ -128,7 +140,7 @@ function App() {
                 !charactersResource.error &&
                 charactersResource.items.length > 0 && (
                   <>
-                    <CharacterGrid characters={charactersResource.items} onSelect={setSelectedCharacter} />
+                    <CharacterGrid characters={charactersResource.items} onSelect={handleSelectCharacter} />
 
                     {charactersResource.hasNextPage && (
                       <div className="load-more">
@@ -258,8 +270,19 @@ function App() {
 
       <Footer />
 
-      {selectedCharacter && (
-        <CharacterModal character={selectedCharacter} onClose={() => setSelectedCharacter(null)} />
+      {selectedCharacter && !isCharacterModalExpanded && (
+        <CharacterModal
+          character={selectedCharacter}
+          onClose={handleCloseCharacterModal}
+          onExpand={() => setIsCharacterModalExpanded(true)}
+        />
+      )}
+      {selectedCharacter && isCharacterModalExpanded && (
+        <CharacterModalV2
+          character={selectedCharacter}
+          onClose={handleCloseCharacterModal}
+          onCollapse={() => setIsCharacterModalExpanded(false)}
+        />
       )}
       {selectedLocation && (
         <LocationModal location={selectedLocation} onClose={() => setSelectedLocation(null)} />

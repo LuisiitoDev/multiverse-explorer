@@ -1250,7 +1250,11 @@ p {
 }
 
 .modal-details dl {
-  margin: 0;
+  margin: 0 0 1rem;
+}
+
+.modal-details dl:last-child {
+  margin-bottom: 0;
 }
 
 .modal-row {
@@ -1273,6 +1277,84 @@ p {
   margin: 0;
   font-weight: 600;
   text-align: right;
+}
+
+.modal-row--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.modal-row--stacked dd {
+  text-align: left;
+}
+
+.modal-details__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-details__header h2 {
+  margin-bottom: 0;
+}
+
+.modal-details__toggle {
+  flex-shrink: 0;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--cyan);
+  background: rgba(54, 217, 255, 0.08);
+  color: var(--cyan);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.modal-details__toggle:hover,
+.modal-details__toggle:focus-visible {
+  box-shadow: 0 0 14px rgba(54, 217, 255, 0.45);
+  outline: none;
+}
+
+.modal-dialog--v2 {
+  width: min(760px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal-episodes h3 {
+  margin: 0 0 0.75rem;
+  color: var(--portal-green);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.modal-episodes__season {
+  margin-bottom: 1rem;
+}
+
+.modal-episodes__season h4 {
+  margin: 0 0 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.modal-episodes__season ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
+.modal-episodes__season li {
+  padding: 0.15rem 0;
 }
 
 /* ===== Deployment status ===== */

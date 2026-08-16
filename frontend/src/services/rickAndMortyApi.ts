@@ -98,3 +98,32 @@ export function fetchEpisodes({ name, season, page, signal }: FetchEpisodesOptio
 
   return fetchList<Episode>(EPISODE_URL, params, signal)
 }
+
+// Only numeric ids are interpolated into the request path, so unexpected values
+// from the API can never shape the URL we call.
+function episodeIdFromUrl(url: string): string | null {
+  const lastSegment = url.split('/').filter(Boolean).findLast(Boolean) ?? ''
+  return /^\d+$/.test(lastSegment) ? lastSegment : null
+}
+
+export async function fetchEpisodesByUrls(
+  episodeUrls: string[],
+  signal?: AbortSignal,
+): Promise<Episode[]> {
+  const ids = episodeUrls
+    .map(episodeIdFromUrl)
+    .filter((id): id is string => id !== null)
+
+  if (ids.length === 0) {
+    return []
+  }
+
+  const response = await fetch(`${EPISODE_URL}/${ids.join(',')}`, { signal })
+
+  if (!response.ok) {
+    throw new Error('The data could not be loaded.')
+  }
+
+  const data: Episode | Episode[] = await response.json()
+  return Array.isArray(data) ? data : [data]
+}

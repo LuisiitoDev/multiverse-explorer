@@ -61,6 +61,23 @@ const mockEpisodeTwo = {
   characters: ['url1'],
 }
 
+const mockEpisodeSeasonTwo = {
+  id: 3,
+  name: 'A Rickle in Time',
+  air_date: 'July 26, 2015',
+  episode: 'S02E01',
+  characters: ['url1'],
+}
+
+const mockRickWithEpisodeUrls = {
+  ...mockRick,
+  episode: [
+    'https://rickandmortyapi.com/api/episode/1',
+    'https://rickandmortyapi.com/api/episode/2',
+    'https://rickandmortyapi.com/api/episode/3',
+  ],
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
 }
@@ -261,6 +278,142 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /close character details/i }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('opens Character Modal V2 with appearances, grouped episodes, and can return to the summary modal', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = new URL(String(input))
+
+      if (url.pathname.includes('/episode/') && url.search === '') {
+        return jsonResponse([mockEpisode, mockEpisodeTwo, mockEpisodeSeasonTwo])
+      }
+
+      return jsonResponse({ info: baseInfo, results: [mockRickWithEpisodeUrls] })
+    })
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /view details for rick sanchez/i }))
+    await user.click(screen.getByRole('button', { name: /extended profile/i }))
+
+    const dialog = screen.getByRole('dialog')
+
+    await waitFor(() => {
+      expect(within(dialog).getByText('Season 1')).toBeInTheDocument()
+    })
+
+    expect(within(dialog).getByText('Origin')).toBeInTheDocument()
+    expect(within(dialog).getByText('Earth (C-137)')).toBeInTheDocument()
+    expect(within(dialog).getByText('Citadel of Ricks')).toBeInTheDocument()
+    expect(within(dialog).getByText('3')).toBeInTheDocument()
+
+    expect(within(dialog).getAllByText('S01E01 — Pilot').length).toBeGreaterThan(0)
+    expect(within(dialog).getByText('Season 2')).toBeInTheDocument()
+    expect(within(dialog).getByText('S01E02 — Lawnmower Dog')).toBeInTheDocument()
+    expect(within(dialog).getAllByText('S02E01 — A Rickle in Time').length).toBeGreaterThan(0)
+
+    expect(
+      within(dialog).getByText('First appearance').closest('.modal-row'),
+    ).toHaveTextContent('S01E01 — Pilot')
+    expect(
+      within(dialog).getByText('Latest appearance').closest('.modal-row'),
+    ).toHaveTextContent('S02E01 — A Rickle in Time')
+
+    await user.click(screen.getByRole('button', { name: /summary view/i }))
+
+    expect(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /extended profile/i }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /close character details/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('shows an error state in Character Modal V2 when episode details fail to load, and retries', async () => {
+    let episodeCallCount = 0
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = new URL(String(input))
+
+      if (url.pathname.includes('/episode/') && url.search === '') {
+        episodeCallCount += 1
+
+        if (episodeCallCount === 1) {
+          return new Response(null, { status: 500 })
+        }
+
+        return jsonResponse([mockEpisode])
+      }
+
+      return jsonResponse({ info: baseInfo, results: [mockRickWithEpisodeUrls] })
+    })
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /view details for rick sanchez/i }))
+    await user.click(screen.getByRole('button', { name: /extended profile/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/portal connection lost/i)).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /retry scan/i }))
+
+    await waitFor(() => {
+      expect(screen.getAllByText('S01E01 — Pilot').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('requests only numeric episode ids, dropping malformed episode urls', async () => {
+    const requestedUrls: string[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const raw = String(input)
+      const url = new URL(raw)
+
+      if (url.pathname.includes('/episode/') && url.search === '') {
+        requestedUrls.push(raw)
+        return jsonResponse([mockEpisode])
+      }
+
+      return jsonResponse({
+        info: baseInfo,
+        results: [
+          {
+            ...mockRick,
+            episode: [
+              'https://rickandmortyapi.com/api/episode/1',
+              'https://rickandmortyapi.com/api/episode/not-a-number',
+              'https://rickandmortyapi.com/api/episode/2',
+            ],
+          },
+        ],
+      })
+    })
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Rick Sanchez')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /view details for rick sanchez/i }))
+    await user.click(screen.getByRole('button', { name: /extended profile/i }))
+
+    await waitFor(() => {
+      expect(requestedUrls).toHaveLength(1)
+    })
+
+    expect(requestedUrls[0]).toBe('https://rickandmortyapi.com/api/episode/1,2')
   })
 
   it('loads more characters and hides the button once there is no next page', async () => {

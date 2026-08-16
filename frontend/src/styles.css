@@ -1234,6 +1234,62 @@ p {
   padding: 1.25rem 0 3rem;
 }
 
+.my-multiverse--signed-out {
+  max-width: 38rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.my-multiverse--signed-out p {
+  color: var(--text-secondary);
+}
+
+.my-multiverse__providers {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.my-multiverse__provider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 3rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid rgba(54, 217, 255, 0.35);
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.62);
+  color: var(--text-primary);
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.my-multiverse__provider:hover,
+.my-multiverse__provider:focus-visible {
+  border-color: var(--cyan);
+  background: rgba(9, 26, 40, 0.9);
+  outline: none;
+  box-shadow: 0 0 18px rgba(54, 217, 255, 0.18);
+}
+
+.my-multiverse__provider-mark {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--cyan);
+  color: #061421;
+  font-size: 0.8rem;
+}
+
+.my-multiverse__auth-status {
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+}
+
 .my-multiverse h1,
 .my-multiverse h2 {
   color: var(--portal-green);

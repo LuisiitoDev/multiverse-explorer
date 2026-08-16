@@ -102,6 +102,53 @@ describe('Favorites / My Multiverse', () => {
     })
   })
 
+  it('shows a sign-in button for every provider available from the API', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/api/auth/providers')) {
+        return jsonResponse([
+          { name: 'google', displayName: 'Google' },
+          { name: 'microsoft', displayName: 'Microsoft' },
+        ])
+      }
+
+      return jsonResponse({}, 401)
+    })
+
+    renderFavorites(
+      <MyMultiverseView
+        onCharacterSelect={vi.fn()}
+        onEpisodeSelect={vi.fn()}
+        onLocationSelect={vi.fn()}
+      />,
+    )
+
+    const googleLink = await screen.findByRole('link', { name: /continue with google/i })
+    const microsoftLink = screen.getByRole('link', { name: /continue with microsoft/i })
+
+    expect(googleLink).toHaveAttribute('href', expect.stringContaining('/api/auth/login/google'))
+    expect(microsoftLink).toHaveAttribute('href', expect.stringContaining('/api/auth/login/microsoft'))
+  })
+
+  it('explains when no sign-in providers are available', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      if (String(input).includes('/api/auth/providers')) return jsonResponse([])
+      return jsonResponse({}, 401)
+    })
+
+    renderFavorites(
+      <MyMultiverseView
+        onCharacterSelect={vi.fn()}
+        onEpisodeSelect={vi.fn()}
+        onLocationSelect={vi.fn()}
+      />,
+    )
+
+    expect(
+      await screen.findByText(/no sign-in providers are currently available/i),
+    ).toBeInTheDocument()
+  })
+
   it('groups mixed resource types and keeps empty sections visible', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input)

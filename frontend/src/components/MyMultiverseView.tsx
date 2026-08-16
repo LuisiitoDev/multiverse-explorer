@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useFavorites } from '../context/FavoritesProvider'
+import { useAuthProviders } from '../hooks/useAuthProviders'
 import { fetchCharactersByUrls, fetchEpisodesByUrls, fetchLocationsByUrls } from '../services/rickAndMortyApi'
+import { loginUrl } from '../services/authApi'
 import type { Character } from '../types/character'
 import type { Episode } from '../types/episode'
 import type { Location } from '../types/location'
@@ -28,6 +30,7 @@ function resourceUrl(type: FavoriteResourceType, id: number) {
 
 function MyMultiverseView({ onCharacterSelect, onEpisodeSelect, onLocationSelect }: MyMultiverseViewProps) {
   const { favorites, isLoading: favoritesLoading, error: favoritesError, isAuthenticated, refresh } = useFavorites()
+  const { providers, isLoading: providersLoading } = useAuthProviders()
   const [resources, setResources] = useState<ResolvedResources>(EMPTY_RESOURCES)
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [isResolving, setIsResolving] = useState(false)
@@ -73,7 +76,43 @@ function MyMultiverseView({ onCharacterSelect, onEpisodeSelect, onLocationSelect
   }, [favoritesByType, isAuthenticated])
 
   if (isAuthenticated === false) {
-    return <section className="my-multiverse"><h1>My Multiverse</h1><p>Sign in to save and revisit your favorite dimensions.</p></section>
+    const returnUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+
+    return (
+      <section className="my-multiverse my-multiverse--signed-out" aria-labelledby="my-multiverse-title">
+        <h1 id="my-multiverse-title">My Multiverse</h1>
+        <p>Sign in to save and revisit your favorite dimensions.</p>
+
+        {providersLoading && (
+          <p className="my-multiverse__auth-status" role="status" aria-live="polite">
+            Loading sign-in providers...
+          </p>
+        )}
+
+        {!providersLoading && providers.length > 0 && (
+          <div className="my-multiverse__providers" aria-label="Sign-in providers">
+            {providers.map((provider) => (
+              <a
+                className="my-multiverse__provider"
+                key={provider.name}
+                href={loginUrl(provider.name, returnUrl)}
+              >
+                <span className="my-multiverse__provider-mark" aria-hidden="true">
+                  {provider.displayName.slice(0, 1).toUpperCase()}
+                </span>
+                <span>Continue with {provider.displayName}</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {!providersLoading && providers.length === 0 && (
+          <p className="my-multiverse__auth-status" role="status">
+            No sign-in providers are currently available.
+          </p>
+        )}
+      </section>
+    )
   }
 
   if (favoritesLoading) return <LoadingPortal />

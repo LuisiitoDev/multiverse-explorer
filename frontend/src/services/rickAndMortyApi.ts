@@ -1,4 +1,4 @@
-import type { ApiInfo, Character, StatusFilter } from '../types/character'
+import type { ApiInfo, Character, GenderFilter, StatusFilter } from '../types/character'
 import type { Episode } from '../types/episode'
 import type { Location } from '../types/location'
 
@@ -35,22 +35,49 @@ async function fetchList<TItem>(
   return { results: data.results, info: data.info }
 }
 
+// species, gender and type are optional so existing V1 callers (name + status)
+// keep working untouched; omitted filters are simply absent from the query.
 type FetchCharactersOptions = {
   name: string
   status: StatusFilter
+  species?: string
+  gender?: GenderFilter
+  type?: string
   page: number
   signal?: AbortSignal
 }
 
-export function fetchCharacters({ name, status, page, signal }: FetchCharactersOptions) {
+export function fetchCharacters({
+  name,
+  status,
+  species = '',
+  gender = 'all',
+  type = '',
+  page,
+  signal,
+}: FetchCharactersOptions) {
   const params = new URLSearchParams()
 
-  if (name) {
-    params.set('name', name)
+  if (name.trim()) {
+    params.set('name', name.trim())
   }
 
   if (status !== 'all') {
     params.set('status', status)
+  }
+
+  // The API matches species and type as substrings, so these are sent as typed
+  // rather than filtered client-side.
+  if (species.trim()) {
+    params.set('species', species.trim())
+  }
+
+  if (gender !== 'all') {
+    params.set('gender', gender)
+  }
+
+  if (type.trim()) {
+    params.set('type', type.trim())
   }
 
   params.set('page', String(page))

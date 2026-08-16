@@ -190,11 +190,15 @@ does not exist, GitHub creates it on first run with **no** protection rules, so
 the job would sail straight through. Confirm the casing matches before relying on
 the gate.
 
-**Gate CD on `main`.** `ci.yml` triggers on `pull_request` and `cd.yml` listens to
-`workflow_run` with no branch filter, so today *any* green PR deploys. Add a
-branch condition before relying on this, or your candidate could be someone's
-half-finished branch. Not changed here because it alters when deploys happen,
-which is a decision worth making on purpose.
+**How a candidate gets created.** CI runs on pull requests targeting `main`. CD
+runs on pushes to `main` and calls CI as its first job, so a candidate revision
+only ever comes from a commit that is on `main` *and* passed lint, tests, build
+and the SonarCloud gate.
+
+CD calls CI rather than watching it finish, because a `workflow_run` gate fires
+on the CI run of the *pull request* — a different commit from the one that lands
+on `main` after a squash or merge. Calling it checks the commit actually being
+deployed.
 
 ---
 

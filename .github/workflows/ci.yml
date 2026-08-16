@@ -2,14 +2,17 @@ name: CI
 
 run-name: CI Rick And Morty
 
+# CI runs on pull requests targeting main. It does not trigger on pushes to
+# main -- CD calls it instead (see workflow_call below), so the checks run
+# against the exact commit that is about to be deployed.
 on:
   pull_request:
     branches: [main]
 
-  push:
-    branches: [main]
+  # Lets CD reuse these jobs as its own gate.
+  workflow_call:
 
-  workflow_dispatch: 
+  workflow_dispatch:
 
 env:
   NODE_VERSION: 22

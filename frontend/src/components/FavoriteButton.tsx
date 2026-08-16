@@ -1,4 +1,6 @@
+import { FaStar, FaRegStar } from 'react-icons/fa'
 import { useFavorites } from '../context/FavoritesProvider'
+import { googleLoginUrl } from '../services/authApi'
 import type { FavoriteResourceType } from '../types/favorite'
 
 type FavoriteButtonProps = Readonly<{
@@ -22,7 +24,7 @@ function FavoriteButton({ resourceType, resourceId }: FavoriteButtonProps) {
 
   if (isAuthenticated === false) {
     return (
-      <a className="favorite-action" href={`/api/auth/login/google?returnUrl=${encodeURIComponent(window.location.pathname)}`}>
+      <a className="favorite-action" href={googleLoginUrl(window.location.pathname)}>
         Sign in to save to My Multiverse
       </a>
     )
@@ -37,7 +39,7 @@ function FavoriteButton({ resourceType, resourceId }: FavoriteButtonProps) {
       aria-pressed={Boolean(favorite)}
       aria-label={favorite ? 'Remove from My Multiverse' : 'Add to My Multiverse'}
     >
-      <span aria-hidden="true">{favorite ? '★' : '☆'}</span>{' '}
+      <>{favorite ? <FaStar aria-hidden="true" /> : <FaRegStar aria-hidden="true" />}</>{' '}
       {isPending ? 'Updating My Multiverse...' : favorite ? 'Saved to My Multiverse' : 'Add to My Multiverse'}
     </button>
   )

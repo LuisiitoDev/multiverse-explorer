@@ -1,14 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { CharacterFilters } from '../types/character'
+import { EMPTY_CHARACTER_FILTERS } from '../types/character'
 import { useDebouncedValue } from './useDebouncedValue'
-
-export const EMPTY_CHARACTER_FILTERS: CharacterFilters = {
-  name: '',
-  status: 'all',
-  species: '',
-  gender: 'all',
-  type: '',
-}
 
 const TEXT_DEBOUNCE_MS = 400
 

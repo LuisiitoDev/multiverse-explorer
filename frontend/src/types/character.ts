@@ -36,3 +36,15 @@ export type CharacterFilters = {
   gender: GenderFilter
   type: string
 }
+
+/**
+ * The "no filter applied" value for each field. Lives beside the type so both
+ * the UI state and the API layer agree on what an unset filter looks like.
+ */
+export const EMPTY_CHARACTER_FILTERS: CharacterFilters = {
+  name: '',
+  status: 'all',
+  species: '',
+  gender: 'all',
+  type: '',
+}

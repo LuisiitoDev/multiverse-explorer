@@ -2,7 +2,7 @@ name: Deploy Infraestructure
 run-name: Deploy Infraestructure
 
 on:
-    pull_request: 
+    push: 
         branches:
             - main
         paths:

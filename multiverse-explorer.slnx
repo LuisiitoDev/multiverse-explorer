@@ -1,7 +1,7 @@
 <Solution>
+  <Project Path="backend/Favorites.Api.Tests/Favorites.Api.Tests.csproj" />
+  <Project Path="backend/Favorites.Api/Favorites.Api.csproj" />
   <Project Path="docker-compose.dcproj">
     <Build />
   </Project>
-  <Project Path="backend/Favorites.Api.Tests/Favorites.Api.Tests.csproj" />
-  <Project Path="backend/Favorites.Api/Favorites.Api.csproj" />
 </Solution>

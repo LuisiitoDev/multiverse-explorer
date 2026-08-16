@@ -1743,3 +1743,327 @@ p {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Multiverse Map ===== */
+
+/* A long resident roster stretches the dialog, so the glyph is pinned to the
+   top of its column instead of drifting to the bottom of a tall empty stage. */
+.modal-dialog--map .modal-stage {
+  align-self: start;
+  position: sticky;
+  top: 0;
+  min-height: 0;
+}
+
+
+.multiverse-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.multiverse-view__header {
+  text-align: center;
+}
+
+.multiverse-view__title {
+  margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--portal-green);
+  text-shadow: 0 0 18px rgba(156, 255, 56, 0.45);
+}
+
+.multiverse-view__subtitle {
+  margin: 0.4rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.multiverse-map {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 20px;
+  border: 1px solid var(--panel-border);
+  background:
+    radial-gradient(circle at 20% 25%, rgba(54, 217, 255, 0.12), transparent 45%),
+    radial-gradient(circle at 78% 70%, rgba(168, 85, 247, 0.14), transparent 45%),
+    linear-gradient(160deg, #030711 0%, #061421 60%, #040d17 100%);
+  box-shadow: inset 0 0 70px rgba(4, 12, 22, 0.9), 0 0 30px rgba(54, 217, 255, 0.08);
+}
+
+.multiverse-map__surface {
+  position: relative;
+  width: 100%;
+  min-width: 520px;
+  aspect-ratio: 16 / 9;
+}
+
+.multiverse-map__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.multiverse-map__stars circle {
+  fill: #dff3ff;
+  opacity: 0.55;
+  animation: star-twinkle 4.5s ease-in-out infinite;
+}
+
+.multiverse-map__paths line {
+  stroke: rgba(54, 217, 255, 0.28);
+  stroke-width: 1;
+  stroke-dasharray: 4 5;
+  animation: path-drift 12s linear infinite;
+}
+
+.multiverse-map__nodes {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.multiverse-map__node-slot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.multiverse-node {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.25s ease;
+}
+
+.multiverse-node__core {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--portal-green);
+  box-shadow: 0 0 12px 2px rgba(156, 255, 56, 0.65);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.multiverse-node.accent-cyan .multiverse-node__core {
+  background: var(--cyan);
+  box-shadow: 0 0 12px 2px rgba(54, 217, 255, 0.65);
+}
+
+.multiverse-node.accent-purple .multiverse-node__core {
+  background: var(--purple);
+  box-shadow: 0 0 12px 2px rgba(168, 85, 247, 0.65);
+}
+
+.multiverse-node.accent-amber .multiverse-node__core {
+  background: var(--amber);
+  box-shadow: 0 0 12px 2px rgba(245, 197, 66, 0.65);
+}
+
+.multiverse-node__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  color: rgba(156, 255, 56, 0.5);
+  opacity: 0;
+}
+
+.multiverse-node__label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 2px);
+  max-width: 130px;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(4, 12, 22, 0.85);
+  color: var(--text-primary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.multiverse-node:hover,
+.multiverse-node:focus-visible {
+  outline: none;
+  transform: scale(1.25);
+  z-index: 2;
+}
+
+.multiverse-node:hover .multiverse-node__label,
+.multiverse-node:focus-visible .multiverse-node__label,
+.multiverse-node--active .multiverse-node__label {
+  opacity: 1;
+}
+
+.multiverse-node:focus-visible .multiverse-node__core {
+  box-shadow: 0 0 0 3px rgba(244, 247, 251, 0.9), 0 0 18px 4px rgba(54, 217, 255, 0.7);
+}
+
+.multiverse-node--active .multiverse-node__pulse,
+.multiverse-node:hover .multiverse-node__pulse {
+  opacity: 1;
+  animation: node-pulse 1.8s ease-out infinite;
+}
+
+.multiverse-readout {
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  border: 1px solid rgba(54, 217, 255, 0.28);
+  background: linear-gradient(180deg, rgba(9, 26, 40, 0.85), rgba(6, 16, 26, 0.7));
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 24px rgba(54, 217, 255, 0.12);
+}
+
+.multiverse-readout--idle {
+  text-align: center;
+}
+
+.multiverse-readout__hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.multiverse-readout__name {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--portal-green);
+}
+
+.multiverse-readout__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 0;
+}
+
+.multiverse-readout__facts dt {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.multiverse-readout__facts dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+.resident-roster {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.resident-roster h3 {
+  margin: 0 0 0.75rem;
+  color: var(--portal-green);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.resident-roster__empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.resident-roster__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resident-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.9rem 0.35rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.6);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.resident-chip:hover {
+  border-color: rgba(54, 217, 255, 0.45);
+  box-shadow: 0 0 14px rgba(54, 217, 255, 0.18);
+}
+
+/* Large enough that each resident's portrait is actually identifiable, rather
+   than reading as a coloured dot beside the name. */
+.resident-chip__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(5, 10, 18, 0.9);
+  border: 1px solid rgba(156, 255, 56, 0.35);
+}
+
+.resident-chip__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.75; }
+}
+
+@keyframes path-drift {
+  to { stroke-dashoffset: -60; }
+}
+
+@keyframes node-pulse {
+  0% { transform: scale(0.8); opacity: 0.9; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .multiverse-map__surface {
+    min-width: 420px;
+    aspect-ratio: 4 / 5;
+  }
+
+  .multiverse-readout__facts {
+    gap: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .multiverse-map__stars circle,
+  .multiverse-map__paths line,
+  .multiverse-node__pulse {
+    animation: none;
+  }
+
+  .multiverse-node {
+    transition: none;
+  }
+}

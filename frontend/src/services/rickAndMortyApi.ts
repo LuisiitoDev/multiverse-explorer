@@ -119,29 +119,47 @@ export function fetchEpisodes({ name, season, page, signal }: FetchEpisodesOptio
 
 // Only numeric ids are interpolated into the request path, so unexpected values
 // from the API can never shape the URL we call.
-function episodeIdFromUrl(url: string): string | null {
+function resourceIdFromUrl(url: string): string | null {
   const lastSegment = url.split('/').filter(Boolean).findLast(Boolean) ?? ''
   return /^\d+$/.test(lastSegment) ? lastSegment : null
 }
 
-export async function fetchEpisodesByUrls(
-  episodeUrls: string[],
+/**
+ * Resolves a list of resource URLs to full records in a single batched request.
+ * The API returns a bare object rather than an array when exactly one id is
+ * requested, which is why the result is always normalised to an array.
+ */
+async function fetchByUrls<TItem>(
+  baseUrl: string,
+  urls: string[],
   signal?: AbortSignal,
-): Promise<Episode[]> {
-  const ids = episodeUrls
-    .map(episodeIdFromUrl)
-    .filter((id): id is string => id !== null)
+): Promise<TItem[]> {
+  const ids = urls.map(resourceIdFromUrl).filter((id): id is string => id !== null)
 
   if (ids.length === 0) {
     return []
   }
 
-  const response = await fetch(`${EPISODE_URL}/${ids.join(',')}`, { signal })
+  const response = await fetch(`${baseUrl}/${ids.join(',')}`, { signal })
 
   if (!response.ok) {
     throw new Error('The data could not be loaded.')
   }
 
-  const data: Episode | Episode[] = await response.json()
+  const data: TItem | TItem[] = await response.json()
   return Array.isArray(data) ? data : [data]
+}
+
+export function fetchEpisodesByUrls(
+  episodeUrls: string[],
+  signal?: AbortSignal,
+): Promise<Episode[]> {
+  return fetchByUrls<Episode>(EPISODE_URL, episodeUrls, signal)
+}
+
+export function fetchCharactersByUrls(
+  characterUrls: string[],
+  signal?: AbortSignal,
+): Promise<Character[]> {
+  return fetchByUrls<Character>(CHARACTER_URL, characterUrls, signal)
 }

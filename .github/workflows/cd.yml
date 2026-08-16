@@ -5,6 +5,7 @@ run-name: CD Rick And Morty
 on:
   workflow_run:
     workflows: ["CI"]
+    branches: [main]
     types:
       - completed
 
@@ -25,7 +26,9 @@ jobs:
   publish:
     name: Publish Image
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

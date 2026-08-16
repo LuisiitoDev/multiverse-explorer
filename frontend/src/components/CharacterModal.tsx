@@ -5,7 +5,8 @@ import Modal from './Modal'
 type CharacterModalProps = Readonly<{
   character: Character
   onClose: () => void
-  onExpand: () => void
+  /** Absent when the V2 modal is disabled, which also hides its entry point. */
+  onExpand?: () => void
 }>
 
 function CharacterModal({ character, onClose, onExpand }: CharacterModalProps) {
@@ -19,9 +20,11 @@ function CharacterModal({ character, onClose, onExpand }: CharacterModalProps) {
       <div className="modal-details">
         <div className="modal-details__header">
           <h2 id="character-modal-title">{character.name}</h2>
-          <button type="button" className="modal-details__toggle" onClick={onExpand}>
-            Extended profile &rarr;
-          </button>
+          {onExpand && (
+            <button type="button" className="modal-details__toggle" onClick={onExpand}>
+              Extended profile &rarr;
+            </button>
+          )}
         </div>
         <CharacterOverview character={character} />
       </div>

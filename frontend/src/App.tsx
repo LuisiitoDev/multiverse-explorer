@@ -19,6 +19,7 @@ import SearchBar from './components/SearchBar'
 import SeasonFilter from './components/SeasonFilter'
 import StatusFilters from './components/StatusFilters'
 import { useDebouncedValue } from './hooks/useDebouncedValue'
+import { useFeatureFlag } from './hooks/useFeatureFlag'
 import { usePaginatedResource } from './hooks/usePaginatedResource'
 import { fetchCharacters, fetchEpisodes, fetchLocations } from './services/rickAndMortyApi'
 import type { Character, StatusFilter } from './types/character'
@@ -53,6 +54,7 @@ function App() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
   const [isCharacterModalExpanded, setIsCharacterModalExpanded] = useState(false)
+  const isCharacterModalV2Enabled = useFeatureFlag('characterModalV2')
 
   const charactersResource = usePaginatedResource<Character>(
     (page, signal) =>
@@ -92,6 +94,10 @@ function App() {
     setSelectedCharacter(null)
     setIsCharacterModalExpanded(false)
   }
+
+  // Expanding is only reachable while the flag is on, but deriving this keeps
+  // the two modals mutually exclusive even if the flag flips mid-session.
+  const showCharacterModalV2 = isCharacterModalV2Enabled && isCharacterModalExpanded
 
   const activeResource =
     view === 'characters'
@@ -270,14 +276,16 @@ function App() {
 
       <Footer />
 
-      {selectedCharacter && !isCharacterModalExpanded && (
+      {selectedCharacter && !showCharacterModalV2 && (
         <CharacterModal
           character={selectedCharacter}
           onClose={handleCloseCharacterModal}
-          onExpand={() => setIsCharacterModalExpanded(true)}
+          onExpand={
+            isCharacterModalV2Enabled ? () => setIsCharacterModalExpanded(true) : undefined
+          }
         />
       )}
-      {selectedCharacter && isCharacterModalExpanded && (
+      {selectedCharacter && showCharacterModalV2 && (
         <CharacterModalV2
           character={selectedCharacter}
           onClose={handleCloseCharacterModal}

@@ -1,1 +1,1 @@
-export type View = 'characters' | 'locations' | 'episodes'
+export type View = 'characters' | 'locations' | 'episodes' | 'multiverse-map'

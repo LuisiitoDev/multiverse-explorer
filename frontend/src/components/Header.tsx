@@ -74,6 +74,26 @@ function EpisodesIcon() {
   )
 }
 
+function MultiverseMapIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="2" />
+      <ellipse cx="12" cy="12" rx="9" ry="4.5" />
+      <ellipse cx="12" cy="12" rx="9" ry="4.5" transform="rotate(60 12 12)" />
+    </svg>
+  )
+}
+
 function SwirlIcon() {
   return (
     <svg
@@ -138,6 +158,16 @@ function Header({ activeView, onNavigate }: HeaderProps) {
         >
           <EpisodesIcon />
           Episodes
+        </button>
+        <button
+          type="button"
+          className={`site-nav__link ${
+            activeView === 'multiverse-map' ? 'site-nav__link--active' : ''
+          }`}
+          onClick={() => onNavigate('multiverse-map')}
+        >
+          <MultiverseMapIcon />
+          Multiverse Map
         </button>
       </nav>
 

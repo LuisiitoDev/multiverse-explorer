@@ -15,6 +15,7 @@ import Hero from './components/Hero'
 import LoadingPortal from './components/LoadingPortal'
 import LocationList from './components/LocationList'
 import LocationModal from './components/LocationModal'
+import MultiverseMapView from './components/MultiverseMapView'
 import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
 import SeasonFilter from './components/SeasonFilter'
@@ -104,12 +105,15 @@ function App() {
   // the two modals mutually exclusive even if the flag flips mid-session.
   const showCharacterModalV2 = isCharacterModalV2Enabled && isCharacterModalExpanded
 
+  // The Multiverse Map owns its own data, so it contributes no hero stats.
   const activeResource =
     view === 'characters'
       ? charactersResource
       : view === 'locations'
         ? locationsResource
-        : episodesResource
+        : view === 'episodes'
+          ? episodesResource
+          : null
 
   return (
     <>
@@ -117,9 +121,9 @@ function App() {
 
       <main className="page-shell">
         <Hero
-          totalCount={activeResource.totalCount}
-          lastSyncedAt={activeResource.lastSyncedAt}
-          error={activeResource.error}
+          totalCount={activeResource?.totalCount ?? null}
+          lastSyncedAt={activeResource?.lastSyncedAt ?? null}
+          error={activeResource?.error ?? null}
         />
 
         <div className="content" id="content">
@@ -271,6 +275,8 @@ function App() {
                 )}
             </ArchivePanel>
           )}
+
+          {view === 'multiverse-map' && <MultiverseMapView />}
         </div>
 
         <DeploymentStatus />

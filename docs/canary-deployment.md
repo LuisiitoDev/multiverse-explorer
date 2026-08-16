@@ -135,7 +135,7 @@ Actions -> Canary Traffic -> Run workflow
   percent: 10
 ```
 
-The job runs in the `Production` environment, so it waits for approval if
+The job runs in the `production` environment, so it waits for approval if
 you configured a required reviewer (recommended — see
 [Setup](#one-time-setup) below).
 
@@ -180,9 +180,15 @@ revision, so reactivating is faster than rebuilding if something surfaces later.
 
 ## One-time setup
 
-**Required reviewer.** Create a GitHub Environment named `Production`
-(Settings → Environments) and add yourself as a required reviewer. Without it the
-Canary Traffic workflow shifts traffic the moment it is dispatched.
+**Required reviewer.** The Canary Traffic workflow runs in the existing
+`production` environment (Settings → Environments). Add yourself as a required
+reviewer there — without one, traffic shifts the moment the workflow is
+dispatched and the approval gate that makes this a canary is gone.
+
+The name is case-sensitive. If the workflow ever references an environment that
+does not exist, GitHub creates it on first run with **no** protection rules, so
+the job would sail straight through. Confirm the casing matches before relying on
+the gate.
 
 **Gate CD on `main`.** `ci.yml` triggers on `pull_request` and `cd.yml` listens to
 `workflow_run` with no branch filter, so today *any* green PR deploys. Add a

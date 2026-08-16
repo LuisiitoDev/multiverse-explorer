@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     # Point this at a GitHub Environment with a required reviewer so a human
     # approves before real users are exposed.
-    environment: Production
+    environment: production
     steps:
       - name: Validate percent
         if: inputs.action == 'shift'

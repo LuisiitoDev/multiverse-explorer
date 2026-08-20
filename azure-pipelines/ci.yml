@@ -1,53 +1,53 @@
-name: $(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd).$(Rev:r)
+name: "$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd).$(Rev:r)"
 
 pr:
-    branches:
-        include:
-            - main
+  branches:
+    include:
+      - main
 
 pool:
-    vmImage: ubuntu-latest
+  vmImage: ubuntu-latest
 
 variables:
-    nodeVersion: '22.x'
-
-
+  nodeVersion: "22.x"
 
 stages:
-    - stage: CI
-      displayName: Continuous Integration
+  - stage: CI
+    displayName: Continuous Integration
 
-      jobs:
-        - job: BuildAndTest
-          displayName: Build and Test
+    jobs:
+      - job: BuildAndTest
+        displayName: Build and Test
 
-          steps:
-            - checkout: self
+        steps:
+          - checkout: self
 
-            - task: UseNode@1
-              inputs:
-                version: $(nodeVersion)
-            
-            - task: Cache@2
-              displayName: Cache npm
-              inputs:
-                key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
-                restoreKeys: |
-                  npm | "$(Agent.OS)"
-                path: $(Pipeline.Workspace)/.npm
+          - task: UseNode@1
+            inputs:
+              version: $(nodeVersion)
 
-            - script: npm ci
-              workingDirectory: frontend
-              displayName: Install dependencies
+          - task: Cache@2
+            displayName: Cache npm
+            inputs:
+              key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: $(Pipeline.Workspace)/.npm
 
-            - script: npm run lint
-              workingDirectory: frontend
-              displayName: Lint
+          - script: npm ci
+            workingDirectory: frontend
+            displayName: Install dependencies
+            env:
+              npm_config_cache: $(Pipeline.Workspace)/.npm
 
-            - script: npm test
-              workingDirectory: frontend
-              displayName: Run tests
+          - script: npm run lint
+            workingDirectory: frontend
+            displayName: Lint
 
-            - script: npm run build
-              workingDirectory: frontend
-              displayName: Build
+          - script: npm test
+            workingDirectory: frontend
+            displayName: Run tests
+
+          - script: npm run build
+            workingDirectory: frontend
+            displayName: Build

@@ -52,7 +52,7 @@ stages:
             workingDirectory: frontend
             displayName: Build
 
-      - job: analyze-static-code
+      - job: analyze_static_code
         displayName: Analyze Static Code with SonarCloud
         dependsOn: BuildAndTest
 

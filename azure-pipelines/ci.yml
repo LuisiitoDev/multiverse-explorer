@@ -37,13 +37,17 @@ stages:
                 path: $(Pipeline.Workspace)/.npm
 
             - script: npm ci
+              workingDirectory: frontend
               displayName: Install dependencies
 
             - script: npm run lint
+              workingDirectory: frontend
               displayName: Lint
 
             - script: npm test
+              workingDirectory: frontend
               displayName: Run tests
 
             - script: npm run build
+              workingDirectory: frontend
               displayName: Build

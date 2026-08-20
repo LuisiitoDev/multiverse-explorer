@@ -12,6 +12,7 @@ variables:
     nodeVersion: '22.x'
 
 
+
 stages:
     - stage: CI
       displayName: Continuous Integration
@@ -27,6 +28,14 @@ stages:
               inputs:
                 version: $(nodeVersion)
             
+            - task: Cache@2
+              displayName: Cache npm
+              inputs:
+                key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
+                restoreKeys: |
+                  npm | "$(Agent.OS)"
+                path: $(Pipeline.Workspace)/.npm
+
             - script: npm ci
               displayName: Install dependencies
 
@@ -37,4 +46,4 @@ stages:
               displayName: Run tests
 
             - script: npm run build
-              displayName: Buildß
+              displayName: Build

@@ -74,9 +74,3 @@ stages:
           # 4. STEP TWO: Execute the analysis scan now that build & test files are ready
           - task: SonarCloudAnalyze@3
             displayName: 'Run SonarCloud Code Scan'
-
-          # 5. STEP THREE: Push the results to the Azure DevOps build summary page
-          - task: SonarCloudPublish@3
-            displayName: 'Publish SonarCloud Quality Gate'
-            inputs:
-              pollingTimeoutSec: "300"

@@ -1,5 +1,6 @@
 name: "Multiverse Explorer - CI $(Build.BuildId)"
 
+
 pr:
   branches:
     include:
@@ -81,3 +82,16 @@ stages:
               # Query SonarCloud Quality Gate
               # if status != OK → exit 1
             displayName: Enforce Quality Gate
+
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: '$(Build.BinariesDirectory)/frontend/dist'
+              includeRootFolder: true
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-$(Build.BuildId).zip'
+              replaceExistingArchive: true
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/frontend-$(Build.BuildId).zip'
+              ArtifactName: 'frontend'
+              publishLocation: 'Container'

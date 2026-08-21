@@ -70,3 +70,9 @@ stages:
 
           - task: SonarCloudAnalyze@4
             displayName: 'Run SonarCloud Code Scan'
+
+          - task: SonarCloudPublish@4
+            displayName: Publish SonarCloud Quality Gate
+            condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+            inputs:
+              pollingTimeoutSec: '300'

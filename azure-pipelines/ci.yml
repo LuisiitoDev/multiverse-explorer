@@ -17,10 +17,12 @@ stages:
 
     jobs:
       - job: BuildAndTest
-        displayName: Build and Test
+        displayName: Build, Test, and Analyze
 
         steps:
+          # 1. Checkout with full history required for SonarCloud pull request diffs
           - checkout: self
+            fetchDepth: 0 
 
           - task: UseNode@1
             inputs:
@@ -34,6 +36,22 @@ stages:
                 npm | "$(Agent.OS)"
               path: $(Pipeline.Workspace)/.npm
 
+          # 2. STEP ONE: Initialize SonarCloud configuration BEFORE your code executes
+          - task: SonarCloudPrepare@3
+            displayName: 'Initialize SonarCloud'
+            inputs:
+              SonarCloud: "SonarQube"
+              organization: "luisiitodev"
+              scannerMode: "CLI"
+              configMode: "manual"
+              cliProjectKey: "luisiitodev"
+              cliProjectName: "Multiverse Explorer"
+              cliSources: "frontend"  # Pointing directly to your app root folder
+              extraProperties: |
+                sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+                sonar.coverage.exclusions=**/*.test.tsx,**/*.test.ts,**/test/**,frontend/src/main.tsx,**/*.config.ts
+
+          # 3. Environment Pipeline Execution 
           - script: npm ci
             workingDirectory: frontend
             displayName: Install dependencies
@@ -44,49 +62,21 @@ stages:
             workingDirectory: frontend
             displayName: Lint
 
-          - script: npm test
+          # Replaced "npm test" with your test coverage script so it generates the lcov.info file
+          - script: npm run test:coverage
             workingDirectory: frontend
-            displayName: Run tests
+            displayName: Run tests with coverage
 
           - script: npm run build
             workingDirectory: frontend
             displayName: Build
 
-      - job: analyze_static_code
-        displayName: Analyze Static Code with SonarCloud
-        dependsOn: BuildAndTest
-
-        steps:
-          - checkout: self
-            fetchDepth: 0 # SonarCloud needs full history to diff against main for New Code.
-
-          - task: UseNode@1
-            inputs:
-              version: $(nodeVersion)
-
-          - script: npm ci
-            workingDirectory: frontend
-            displayName: Install dependencies
-
-          - script: npm run test:coverage
-            workingDirectory: frontend
-            displayName: Run tests with coverage
-
-          - task: SonarCloudPrepare@3
-            inputs:
-              SonarCloud: "SonarCloud"
-              organization: "luisiitodev"
-              scannerMode: "CLI"
-              configMode: "manual"
-              cliProjectKey: "luisiitodev"
-              cliProjectName: "Multiverse Explorer"
-              cliSources: "."
-              extraProperties: |
-                sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
-                sonar.coverage.exclusions=**/*.test.tsx,**/*.test.ts,**/test/**,frontend/src/main.tsx,**/*.config.ts
-
+          # 4. STEP TWO: Execute the analysis scan now that build & test files are ready
           - task: SonarCloudAnalyze@3
+            displayName: 'Run SonarCloud Code Scan'
 
+          # 5. STEP THREE: Push the results to the Azure DevOps build summary page
           - task: SonarCloudPublish@3
+            displayName: 'Publish SonarCloud Quality Gate'
             inputs:
               pollingTimeoutSec: "300"

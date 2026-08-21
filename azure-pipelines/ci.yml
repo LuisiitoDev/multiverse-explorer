@@ -36,7 +36,6 @@ stages:
                 npm | "$(Agent.OS)"
               path: $(Pipeline.Workspace)/.npm
 
-          # 2. STEP ONE: Initialize SonarCloud configuration BEFORE your code executes
           - task: SonarCloudPrepare@4
             displayName: 'Initialize SonarCloud'
             inputs:
@@ -51,7 +50,6 @@ stages:
                 sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
                 sonar.coverage.exclusions=**/*.test.tsx,**/*.test.ts,**/test/**,frontend/src/main.tsx,**/*.config.ts
 
-          # 3. Environment Pipeline Execution 
           - script: npm ci
             workingDirectory: frontend
             displayName: Install dependencies
@@ -62,7 +60,6 @@ stages:
             workingDirectory: frontend
             displayName: Lint
 
-          # Replaced "npm test" with your test coverage script so it generates the lcov.info file
           - script: npm run test:coverage
             workingDirectory: frontend
             displayName: Run tests with coverage
@@ -71,11 +68,5 @@ stages:
             workingDirectory: frontend
             displayName: Build
 
-          # 4. STEP TWO: Execute the analysis scan now that build & test files are ready
           - task: SonarCloudAnalyze@4
             displayName: 'Run SonarCloud Code Scan'
-
-          - task: SonarCloudPublish@4
-            displayName: 'Publish Quality Gate'
-            inputs:
-              pollingTimeoutSec: '300'

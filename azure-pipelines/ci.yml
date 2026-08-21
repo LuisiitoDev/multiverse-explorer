@@ -76,3 +76,8 @@ stages:
             condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
             inputs:
               pollingTimeoutSec: '300'
+
+          - script: |
+              # Query SonarCloud Quality Gate
+              # if status != OK → exit 1
+            displayName: Enforce Quality Gate

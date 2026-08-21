@@ -20,7 +20,7 @@ stages:
         displayName: Build, Test, and Analyze
 
         steps:
-          # 1. Checkout with full history required for SonarCloud pull request diffs
+          
           - checkout: self
             fetchDepth: 0 
 
@@ -37,7 +37,7 @@ stages:
               path: $(Pipeline.Workspace)/.npm
 
           # 2. STEP ONE: Initialize SonarCloud configuration BEFORE your code executes
-          - task: SonarCloudPrepare@3
+          - task: SonarCloudPrepare@4
             displayName: 'Initialize SonarCloud'
             inputs:
               SonarCloud: "SonarQube"
@@ -46,7 +46,7 @@ stages:
               configMode: "manual"
               cliProjectKey: "luisiitodev"
               cliProjectName: "Multiverse Explorer"
-              cliSources: "frontend"  # Pointing directly to your app root folder
+              cliSources: "frontend"
               extraProperties: |
                 sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
                 sonar.coverage.exclusions=**/*.test.tsx,**/*.test.ts,**/test/**,frontend/src/main.tsx,**/*.config.ts
@@ -72,5 +72,10 @@ stages:
             displayName: Build
 
           # 4. STEP TWO: Execute the analysis scan now that build & test files are ready
-          - task: SonarCloudAnalyze@3
+          - task: SonarCloudAnalyze@4
             displayName: 'Run SonarCloud Code Scan'
+
+          - task: SonarCloudPublish@4
+            displayName: 'Publish Quality Gate'
+            inputs:
+              pollingTimeoutSec: '300'

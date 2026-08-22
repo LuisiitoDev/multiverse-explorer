@@ -13,6 +13,7 @@ pool:
 
 variables:
   azureServiceConnection: rick-and-morty
+  resourceGroup: rick-and-morty
   devAppServiceName: rick-and-morty-dev-app-dev
   stagingAppServiceName: rick-and-morty-staging-app-staging
   prodAppServiceName: rick-and-morty-prod-app-prod
@@ -70,16 +71,36 @@ stages:
       - deployment: DeployStaging
         displayName: Deploy Multiverse Explorer to Staging
 
-        # Azure DevOps Environment 'multiverse-staging' has a "Query Azure Monitor Alerts"
-        # check configured (Project settings > Environments > multiverse-staging > Approvals
-        # and checks), scoped to the Dev App Service alert rules. That check runs before this
-        # job's steps below, so it acts as the post-Dev-deployment health gate.
         environment: multiverse-staging
 
         strategy:
           runOnce:
             deploy:
               steps:
+                # Gate: block promotion to Staging if the Dev App Service's Azure Monitor
+                # alert rules (http5xx-alert, response-time-alert - see azure-infra/dev/main.bicep)
+                # are currently firing. Queries the Alerts Management API directly rather than
+                # relying on an Environment check configured out-of-band in the ADO UI, so the
+                # gate logic lives in this file.
+                - task: AzureCLI@2
+                  displayName: Gate - Query Azure Monitor alerts on Dev
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      subscriptionId=$(az account show --query id -o tsv)
+                      resourceId="/subscriptions/$subscriptionId/resourceGroups/$(resourceGroup)/providers/Microsoft.Web/sites/$(devAppServiceName)"
+                      alertsUrl="https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.AlertsManagement/alerts?api-version=2019-05-05-preview&targetResource=$resourceId&monitorCondition=Fired"
+                      fired=$(az rest --method get --url "$alertsUrl" --query "length(value)" -o tsv)
+                      if [ "$fired" -gt 0 ]; then
+                        echo "##vso[task.logissue type=error]$fired Azure Monitor alert(s) are firing on $(devAppServiceName); blocking promotion to Staging."
+                        az rest --method get --url "$alertsUrl" --query "value[].properties.essentials.alertRule" -o tsv
+                        exit 1
+                      fi
+                      echo "No firing alerts on $(devAppServiceName); promotion to Staging is clear."
+
                 - download: ci
                   artifact: frontend
 
@@ -112,17 +133,37 @@ stages:
       - deployment: DeployProd
         displayName: Deploy Multiverse Explorer to Prod
 
-        # Azure DevOps Environment 'multiverse-prod' has two checks configured in the UI:
-        #  1. Approval - manual pre-deployment approval, required before this job can start.
-        #  2. Query Azure Monitor Alerts - scoped to the Staging App Service alert rules,
-        #     acting as the post-Staging-deployment health gate.
-        # Both run before this job's steps below; neither is expressible as YAML syntax.
+        # Azure DevOps Environment 'multiverse-prod' has a manual Approval check configured
+        # in the UI (Project settings > Environments > multiverse-prod > Approvals and checks),
+        # required before this job can start. That part isn't expressible as YAML syntax.
         environment: multiverse-prod
 
         strategy:
           runOnce:
             deploy:
               steps:
+                # Gate: block promotion to Prod if the Staging App Service's Azure Monitor
+                # alert rules (http5xx-alert, response-time-alert - see azure-infra/staging/main.bicep)
+                # are currently firing.
+                - task: AzureCLI@2
+                  displayName: Gate - Query Azure Monitor alerts on Staging
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      subscriptionId=$(az account show --query id -o tsv)
+                      resourceId="/subscriptions/$subscriptionId/resourceGroups/$(resourceGroup)/providers/Microsoft.Web/sites/$(stagingAppServiceName)"
+                      alertsUrl="https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.AlertsManagement/alerts?api-version=2019-05-05-preview&targetResource=$resourceId&monitorCondition=Fired"
+                      fired=$(az rest --method get --url "$alertsUrl" --query "length(value)" -o tsv)
+                      if [ "$fired" -gt 0 ]; then
+                        echo "##vso[task.logissue type=error]$fired Azure Monitor alert(s) are firing on $(stagingAppServiceName); blocking promotion to Prod."
+                        az rest --method get --url "$alertsUrl" --query "value[].properties.essentials.alertRule" -o tsv
+                        exit 1
+                      fi
+                      echo "No firing alerts on $(stagingAppServiceName); promotion to Prod is clear."
+
                 - download: ci
                   artifact: frontend
 

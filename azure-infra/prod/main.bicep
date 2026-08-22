@@ -48,4 +48,70 @@ resource site 'Microsoft.Web/sites@2023-01-01' = {
   }
 }
 
+resource http5xxAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: '${siteName}-http5xx-alert'
+  location: 'global'
+  properties: {
+    description: 'Alerts when the ${siteName} App Service returns HTTP 5xx responses.'
+    severity: 1
+    enabled: true
+    scopes: [
+      site.id
+    ]
+    evaluationFrequency: 'PT1M'
+    windowSize: 'PT5M'
+    targetResourceType: 'Microsoft.Web/sites'
+    targetResourceRegion: location
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'Http5xx'
+          metricName: 'Http5xx'
+          metricNamespace: 'Microsoft.Web/sites'
+          operator: 'GreaterThan'
+          threshold: 0
+          timeAggregation: 'Total'
+          criterionType: 'StaticThresholdCriterion'
+        }
+      ]
+    }
+    autoMitigate: true
+    actions: []
+  }
+}
+
+resource responseTimeAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: '${siteName}-response-time-alert'
+  location: 'global'
+  properties: {
+    description: 'Alerts when the ${siteName} App Service average response time exceeds 2 seconds.'
+    severity: 2
+    enabled: true
+    scopes: [
+      site.id
+    ]
+    evaluationFrequency: 'PT1M'
+    windowSize: 'PT5M'
+    targetResourceType: 'Microsoft.Web/sites'
+    targetResourceRegion: location
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'AverageResponseTime'
+          metricName: 'AverageResponseTime'
+          metricNamespace: 'Microsoft.Web/sites'
+          operator: 'GreaterThan'
+          threshold: 2
+          timeAggregation: 'Average'
+          criterionType: 'StaticThresholdCriterion'
+        }
+      ]
+    }
+    autoMitigate: true
+    actions: []
+  }
+}
+
 output defaultHostName string = site.properties.defaultHostName

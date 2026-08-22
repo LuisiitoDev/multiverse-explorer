@@ -8,6 +8,16 @@ resources:
       source: ci
       trigger: none
 
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  azureServiceConnection: rick-and-morty
+  devAppServiceName: rick-and-morty-dev-app-dev
+  stagingAppServiceName: rick-and-morty-staging-app-staging
+  prodAppServiceName: rick-and-morty-prod-app-prod
+  frontendPackage: $(Pipeline.Workspace)/ci/frontend/*.zip
+
 stages:
   - stage: DeployDev
     displayName: Deploy to Dev
@@ -30,3 +40,109 @@ stages:
                     echo "Contents"
                     find "$(Pipeline.Workspace)/ci/frontend" -maxdepth 3 -type f
                   displayName: Inspect CI artifact
+
+                - task: AzureWebApp@1
+                  displayName: Deploy to Dev App Service
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    appType: webAppLinux
+                    appName: $(devAppServiceName)
+                    package: $(frontendPackage)
+
+                - script: |
+                    set -e
+                    url="https://$(devAppServiceName).azurewebsites.net"
+                    echo "Smoke testing $url"
+                    status=$(curl -s -o /dev/null -w "%{http_code}" --retry 5 --retry-delay 10 --retry-connrefused "$url")
+                    echo "HTTP status: $status"
+                    if [ "$status" -lt 200 ] || [ "$status" -ge 400 ]; then
+                      echo "Smoke test failed with status $status"
+                      exit 1
+                    fi
+                    echo "Smoke test passed"
+                  displayName: Smoke test - Dev
+
+  - stage: DeployStaging
+    displayName: Deploy to Staging
+    dependsOn: DeployDev
+
+    jobs:
+      - deployment: DeployStaging
+        displayName: Deploy Multiverse Explorer to Staging
+
+        # Azure DevOps Environment 'multiverse-staging' has a "Query Azure Monitor Alerts"
+        # check configured (Project settings > Environments > multiverse-staging > Approvals
+        # and checks), scoped to the Dev App Service alert rules. That check runs before this
+        # job's steps below, so it acts as the post-Dev-deployment health gate.
+        environment: multiverse-staging
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ci
+                  artifact: frontend
+
+                - task: AzureWebApp@1
+                  displayName: Deploy to Staging App Service
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    appType: webAppLinux
+                    appName: $(stagingAppServiceName)
+                    package: $(frontendPackage)
+
+                - script: |
+                    set -e
+                    url="https://$(stagingAppServiceName).azurewebsites.net"
+                    echo "Smoke testing $url"
+                    status=$(curl -s -o /dev/null -w "%{http_code}" --retry 5 --retry-delay 10 --retry-connrefused "$url")
+                    echo "HTTP status: $status"
+                    if [ "$status" -lt 200 ] || [ "$status" -ge 400 ]; then
+                      echo "Smoke test failed with status $status"
+                      exit 1
+                    fi
+                    echo "Smoke test passed"
+                  displayName: Smoke test - Staging
+
+  - stage: DeployProd
+    displayName: Deploy to Prod
+    dependsOn: DeployStaging
+
+    jobs:
+      - deployment: DeployProd
+        displayName: Deploy Multiverse Explorer to Prod
+
+        # Azure DevOps Environment 'multiverse-prod' has two checks configured in the UI:
+        #  1. Approval - manual pre-deployment approval, required before this job can start.
+        #  2. Query Azure Monitor Alerts - scoped to the Staging App Service alert rules,
+        #     acting as the post-Staging-deployment health gate.
+        # Both run before this job's steps below; neither is expressible as YAML syntax.
+        environment: multiverse-prod
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ci
+                  artifact: frontend
+
+                - task: AzureWebApp@1
+                  displayName: Deploy to Prod App Service
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    appType: webAppLinux
+                    appName: $(prodAppServiceName)
+                    package: $(frontendPackage)
+
+                - script: |
+                    set -e
+                    url="https://$(prodAppServiceName).azurewebsites.net"
+                    echo "Smoke testing $url"
+                    status=$(curl -s -o /dev/null -w "%{http_code}" --retry 5 --retry-delay 10 --retry-connrefused "$url")
+                    echo "HTTP status: $status"
+                    if [ "$status" -lt 200 ] || [ "$status" -ge 400 ]; then
+                      echo "Smoke test failed with status $status"
+                      exit 1
+                    fi
+                    echo "Smoke test passed"
+                  displayName: Smoke test - Prod

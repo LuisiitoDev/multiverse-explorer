@@ -1,6 +1,7 @@
 name: "Multiverse Explorer - Development - Infra"
 
 variables:
+  app-name: rick-and-morty-dev-app
   resource-group: "rick-and-morty"
   location: "westus2"
   template-file: "infra/stage-dev.bicep"
@@ -25,4 +26,8 @@ stages:
               inlineScript: |
                 az group create -l $(location) -n $(resource-group)
                 
-                az deployment group create -f $(template-file) -g $(resource-group)
+                az deployment group create what-if \
+                  --resource-group $(resource-group) \
+                  --template-file $(template-file)
+                  --parameters \
+                    appName $(app-name)

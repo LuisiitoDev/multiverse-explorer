@@ -1,0 +1,49 @@
+name: "Multiverse Explorer - Prod - Infra"
+
+trigger:
+  branches:
+    include:
+      - main
+
+  paths:
+    include:
+      - azure-infra/prod/*
+
+variables:
+  app-name: rick-and-morty-prod-app
+  resource-group: "rick-and-morty"
+  location: "westus2"
+  template-file: "azure-infra/prod/main.bicep"
+  azure-service-connection: "rick-and-morty"
+
+stages:
+  - stage: Deploy
+    displayName: Deploy App Service
+
+    jobs:
+      - deployment: DeployProdInfra
+        displayName: Deploy Prod Infraestructure
+        environment: multiverse-prod
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: AzureCLI@2
+                  displayName: Deploy Bicep
+                  inputs:
+                    azureSubscription: "$(azure-service-connection)"
+                    scriptType: "bash"
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az group create \
+                      --location $(location) \
+                      --name $(resource-group)
+
+                      az deployment group create \
+                      --name "deploy-$(Build.BuildId)" \
+                      --resource-group $(resource-group) \
+                      --template-file $(template-file) \
+                      --parameters appName=$(app-name)

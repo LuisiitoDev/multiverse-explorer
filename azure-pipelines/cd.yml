@@ -28,5 +28,5 @@ stages:
                 - script: |
                     echo "Artifact downloaded successfully"
                     echo "Contents"
-                    find "$(Pipeline.Workspace)/ci/fronted" -maxdepth 3 -type f
+                    find "$(Pipeline.Workspace)/ci/frontend" -maxdepth 3 -type f
                   displayName: Inspect CI artifact

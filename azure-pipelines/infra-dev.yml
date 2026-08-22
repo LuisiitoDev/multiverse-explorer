@@ -19,9 +19,10 @@ stages:
           - checkout: self
           - task: AzureCLI@2
             inputs:
-              azureSubscription: $(azure-service-connection)
-              scriptType: ps
+              azureSubscription: '$(azure-service-connection)'
+              scriptType: 'ps'
+              scriptLocation: 'inlineScript'
               inlineScript: |
                 az group create -l $(location) -n $(resource-group)
-
+                
                 az deployment group create -f $(template-file) -g $(resource-group)

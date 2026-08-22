@@ -1,9 +1,10 @@
 trigger: none
+
 pr: none
 
 resources:
   pipelines:
-    - pipeline: ci
+    - pipeline: 2
       source: Multiverse Explorer - CI
       trigger: none
 

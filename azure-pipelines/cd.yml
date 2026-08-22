@@ -4,8 +4,8 @@ pr: none
 
 resources:
   pipelines:
-    - pipeline: 2
-      source: Multiverse Explorer - CI
+    - pipeline: ci
+      source: ci
       trigger: none
 
 stages:

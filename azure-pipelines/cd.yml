@@ -1,0 +1,31 @@
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+    - pipeline: ci
+      source: Multiverse Explorer - CI
+      trigger: none
+
+stages:
+  - stage: DeployDev
+    displayName: Deploy to Dev
+
+    jobs:
+      - deployment: DeployDev
+        displayName: Deploy Multiverse Explorer to Dev
+
+        environment: multiverse-dev
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ci
+                  artifact: frontend
+
+                - script: |
+                    echo "Artifact downloaded successfully"
+                    echo "Contents"
+                    find "$(Pipeline.Workspace)/ci/fronted" -maxdepth 3 -type f
+                  displayName: Inspect CI artifact

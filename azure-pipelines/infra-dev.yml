@@ -18,16 +18,19 @@ stages:
 
         steps:
           - checkout: self
+
           - task: AzureCLI@2
             inputs:
               azureSubscription: '$(azure-service-connection)'
               scriptType: 'bash'
               scriptLocation: 'inlineScript'
               inlineScript: |
-                az group create -l $(location) -n $(resource-group)
-                
+                az group create \
+                  --location $(location) \
+                  --name $(resource-group)
+
                 az deployment group create \
-                  --name "deploy-$(Build.BuildId)"
+                  --name "deploy-$(Build.BuildId)" \
                   --resource-group $(resource-group) \
                   --template-file $(template-file) \
                   --parameters appName=$(app-name)

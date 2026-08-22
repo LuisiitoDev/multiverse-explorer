@@ -1,4 +1,4 @@
-name: "Multiverse Explorer - CI $(Build.BuildId)"
+name: "Multiverse Explorer - CI"
 
 
 pr:

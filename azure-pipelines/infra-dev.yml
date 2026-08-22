@@ -26,8 +26,7 @@ stages:
               inlineScript: |
                 az group create -l $(location) -n $(resource-group)
                 
-                az deployment group create 
-                  --what-if \
+                az deployment group create what-if \
                   --resource-group $(resource-group) \
                   --template-file $(template-file) \
                   --parameters appName=$(app-name)

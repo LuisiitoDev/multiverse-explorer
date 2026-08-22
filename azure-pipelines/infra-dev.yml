@@ -1,0 +1,27 @@
+name: "Multiverse Explorer - Development - Infra"
+
+variables:
+  resource-group: "rick-and-morty"
+  location: "westus2"
+  template-file: "infra/stage-dev.bicep"
+  azure-service-connection: "rick-and-morty"
+
+stages:
+  - stage: Deploy
+    displayName: Deploy App Service
+
+    jobs:
+      - job: Deploy
+        pool:
+          vmImage: ubuntu-latest
+
+        steps:
+          - checkout: self
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: $(azure-service-connection)
+              scriptType: ps
+              inlineScript: |
+                az group create -l $(location) -n $(resource-group)
+
+                az deployment group create -f $(template-file) -g $(resource-group)

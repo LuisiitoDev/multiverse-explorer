@@ -1,10 +1,19 @@
 name: "Multiverse Explorer - Development - Infra"
 
+trigger:
+  branches:
+    include:
+      - main
+
+  paths:
+    include:
+      - azure-infra/dev/*
+
 variables:
   app-name: rick-and-morty-dev-app
   resource-group: "rick-and-morty"
   location: "westus2"
-  template-file: "infra/stage-dev.bicep"
+  template-file: "azure-infra/dev/main.bicep"
   azure-service-connection: "rick-and-morty"
 
 stages:
@@ -12,25 +21,29 @@ stages:
     displayName: Deploy App Service
 
     jobs:
-      - job: Deploy
-        pool:
-          vmImage: ubuntu-latest
+      - deployment: DeployDevInfra
+        displayName: Deploy Dev Infraestructure
+        environment: multiverse-dev
 
-        steps:
-          - checkout: self
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
 
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: '$(azure-service-connection)'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az group create \
-                  --location $(location) \
-                  --name $(resource-group)
+                - task: AzureCLI@2
+                  displayName: Deploy Bicep
+                  inputs:
+                    azureSubscription: "$(azure-service-connection)"
+                    scriptType: "bash"
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az group create \
+                      --location $(location) \
+                      --name $(resource-group)
 
-                az deployment group create \
-                  --name "deploy-$(Build.BuildId)" \
-                  --resource-group $(resource-group) \
-                  --template-file $(template-file) \
-                  --parameters appName=$(app-name)
+                      az deployment group create \
+                      --name "deploy-$(Build.BuildId)" \
+                      --resource-group $(resource-group) \
+                      --template-file $(template-file) \
+                      --parameters appName=$(app-name)

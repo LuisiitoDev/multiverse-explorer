@@ -11,7 +11,7 @@ trigger:
 
 variables:
   app-name: rick-and-morty-staging-app
-  resource-group: "rick-and-morty"
+  resource-group: "rick-and-morty-staging"
   location: "westus2"
   template-file: "azure-infra/staging/main.bicep"
   azure-service-connection: "rick-and-morty"

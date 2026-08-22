@@ -1,22 +1,17 @@
 param location string = resourceGroup().location
 param appName string
 
+// Azure allows only one Free-tier Linux App Service plan per resource group,
+// and the dev environment's plan already claims that slot in this RG. Rather
+// than pay for a dedicated plan, prod's site runs on that same free plan.
+param sharedPlanName string = 'rick-and-morty-dev-app-dev-plan'
+
 // F1 only ships a Linux Node runtime; the frontend/dist zip has no server of
 // its own, so 'serve' provides one at deploy time via appCommandLine below.
-var planName = '${appName}-prod-plan'
 var siteName = '${appName}-prod'
 
-resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
-  name: planName
-  location: location
-  sku: {
-    name: 'F1'
-    tier: 'Free'
-  }
-  kind: 'linux'
-  properties: {
-    reserved: true
-  }
+resource plan 'Microsoft.Web/serverfarms@2023-01-01' existing = {
+  name: sharedPlanName
 }
 
 resource site 'Microsoft.Web/sites@2023-01-01' = {

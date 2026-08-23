@@ -11,6 +11,12 @@ var siteName = '${appName}-dev'
 // concern in this RG, staging/prod reference it as 'existing'.
 param sharedWorkspaceName string = 'rick-and-morty-logs'
 
+// Azure Load Testing resource is a management container for test definitions
+// and results, not per-environment compute - one is enough. It targets Dev's
+// URL from the CD pipeline (azure-loadtest/dev-loadtest-config.yaml), so it's
+// referenced there by name/resource group rather than composed into Bicep.
+param loadTestResourceName string = 'rick-and-morty-loadtest'
+
 resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: planName
   location: location
@@ -33,6 +39,12 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10
     }
     retentionInDays: 30
   }
+}
+
+resource loadTest 'Microsoft.LoadTestService/loadtests@2022-12-01' = {
+  name: loadTestResourceName
+  location: location
+  properties: {}
 }
 
 resource site 'Microsoft.Web/sites@2023-01-01' = {

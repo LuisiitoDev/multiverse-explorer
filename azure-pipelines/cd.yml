@@ -18,6 +18,7 @@ variables:
   stagingAppServiceName: rick-and-morty-staging-app-staging
   prodAppServiceName: rick-and-morty-prod-app-prod
   frontendPackage: $(Pipeline.Workspace)/ci/frontend/*.zip
+  loadTestResourceName: rick-and-morty-loadtest
 
 stages:
   - stage: DeployDev
@@ -63,20 +64,6 @@ stages:
                     echo "Smoke test passed"
                   displayName: Smoke test - Dev
 
-  - stage: DeployStaging
-    displayName: Deploy to Staging
-    dependsOn: DeployDev
-
-    jobs:
-      - deployment: DeployStaging
-        displayName: Deploy Multiverse Explorer to Staging
-
-        environment: multiverse-staging
-
-        strategy:
-          runOnce:
-            deploy:
-              steps:
                 # Gate: block promotion to Staging if the Dev App Service's Azure Monitor
                 # alert rules (http5xx-alert, response-time-alert - see azure-infra/dev/main.bicep)
                 # are currently firing. Queries the Alerts Management API directly rather than
@@ -101,6 +88,32 @@ stages:
                       fi
                       echo "No firing alerts on $(devAppServiceName); promotion to Staging is clear."
 
+                # Gate: run a small, short load test against Dev and block promotion if the
+                # pass/fail criteria in dev-loadtest-config.yaml are breached (avg response
+                # time or error rate). Requires the "Azure Load Testing" Marketplace extension
+                # to be installed in this Azure DevOps organization.
+                - task: AzureLoadTest@1
+                  displayName: Gate - Azure Load Test on Dev
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    loadTestConfigFile: azure-loadtest/dev-loadtest-config.yaml
+                    resourceGroup: $(resourceGroup)
+                    loadTestResource: $(loadTestResourceName)
+
+  - stage: DeployStaging
+    displayName: Deploy to Staging
+    dependsOn: DeployDev
+
+    jobs:
+      - deployment: DeployStaging
+        displayName: Deploy Multiverse Explorer to Staging
+
+        environment: multiverse-staging
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
                 - download: ci
                   artifact: frontend
 

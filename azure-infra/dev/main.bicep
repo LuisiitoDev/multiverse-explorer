@@ -6,6 +6,11 @@ param appName string
 var planName = '${appName}-dev-plan'
 var siteName = '${appName}-dev'
 
+// Dev owns the shared plan (see sharedPlanName in staging/prod); it owns the
+// shared Log Analytics workspace for the same reason - one free resource per
+// concern in this RG, staging/prod reference it as 'existing'.
+param sharedWorkspaceName string = 'rick-and-morty-logs'
+
 resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: planName
   location: location
@@ -16,6 +21,17 @@ resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
   kind: 'linux'
   properties: {
     reserved: true
+  }
+}
+
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: sharedWorkspaceName
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
   }
 }
 
@@ -45,6 +61,24 @@ resource site 'Microsoft.Web/sites@2023-01-01' = {
         }
       ]
     }
+  }
+}
+
+resource diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: '${siteName}-diagnostics'
+  scope: site
+  properties: {
+    workspaceId: logAnalyticsWorkspace.id
+    logs: [
+      {
+        category: 'AppServiceHTTPLogs'
+        enabled: true
+      }
+      {
+        category: 'AppServicePlatformLogs'
+        enabled: true
+      }
+    ]
   }
 }
 

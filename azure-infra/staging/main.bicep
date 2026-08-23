@@ -6,12 +6,20 @@ param appName string
 // than pay for a dedicated plan, staging's site runs on that same free plan.
 param sharedPlanName string = 'rick-and-morty-dev-app-dev-plan'
 
+// Dev owns the shared Log Analytics workspace for this RG; staging's logs go
+// to the same workspace and are told apart by _ResourceId in KQL queries.
+param sharedWorkspaceName string = 'rick-and-morty-logs'
+
 // F1 only ships a Linux Node runtime; the frontend/dist zip has no server of
 // its own, so 'serve' provides one at deploy time via appCommandLine below.
 var siteName = '${appName}-staging'
 
 resource plan 'Microsoft.Web/serverfarms@2023-01-01' existing = {
   name: sharedPlanName
+}
+
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
+  name: sharedWorkspaceName
 }
 
 resource site 'Microsoft.Web/sites@2023-01-01' = {
@@ -40,6 +48,24 @@ resource site 'Microsoft.Web/sites@2023-01-01' = {
         }
       ]
     }
+  }
+}
+
+resource diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: '${siteName}-diagnostics'
+  scope: site
+  properties: {
+    workspaceId: logAnalyticsWorkspace.id
+    logs: [
+      {
+        category: 'AppServiceHTTPLogs'
+        enabled: true
+      }
+      {
+        category: 'AppServicePlatformLogs'
+        enabled: true
+      }
+    ]
   }
 }
 

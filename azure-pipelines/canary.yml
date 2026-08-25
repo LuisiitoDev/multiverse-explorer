@@ -1,0 +1,160 @@
+name: "Canary-Traffic-$(Date:yyyyMMdd)$(Rev:.r)"
+
+trigger: none
+pr: none
+
+parameters:
+  - name: action
+    displayName: What to do with the traffic
+    type: string
+    default: shift
+    values:
+      - shift
+      - rollback
+      - promote
+
+  - name: percent
+    displayName: Percent of traffic for the canary (shift only, 1-99)
+    default: 10
+
+variables:
+  - group: multiverse-explorer-prod
+
+stages:
+  - stage: CanaryTraffic
+    displayName: Canary Traffic
+
+    jobs:
+      - deployment: ShiftTraffic
+        displayName: Shift traffic
+        environment: multiverse-prod
+        pool:
+          vmImage: ubuntu-latest
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: none
+
+                - bash: |
+                    PERCENT=${{ parameters.percent }}
+
+                    case "$PERCENT" in ''|*[!0-9]*) 
+                      echo "percent must be a whole number" >&2;
+                      exit 1 
+                      ;;
+                    esac
+
+                    if [ "$PERCENT" -lt 1 ] || [ "$PERCENT" -gt 99 ]; then
+                      echo "percent must be between 1 and 99."
+                      echo "Use 'promote' for 100 or 'rollback' for 0." >&2
+                      exit 1
+                    fi
+                  displayName: Validate percent
+                  condition: eq('${{ parameters.action }}', 'shift')
+
+                - task: AzureCLI@2
+                  displayName: Identity revision
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      CANARY=$(az containerapp revision list \
+                        --name "$(appName)" \
+                        --resource-group "$(resourceGroup)" \
+                        --query "[?properties.active && contains(properties.labels || [], 'canary')].name | [0]" \
+                        -o tsv)
+
+                      if [ -z "$CANARY" ]; then
+                        echo "No revision carries the 'canary' label. Run CD first." >&2
+                        exit 1
+                      fi
+
+                      STABLE=$(az containerapp ingress traffic show \
+                        --name "$(appName)" \
+                        --resource-group "$(resourceGroup)" \
+                        --query "sort_by([?revisionName != null && revisionName != '$CANARY'], &weight) | [-1].revisionName" \
+                        -o tsv)
+
+                      if [ -z "$STABLE" ] || [ "$STABLE" = "$CANARY" ]; then
+                        echo "Could not identify a distinct stable revision."
+                        echo "The canary may already hold all traffic." >&2
+                        exit 1
+                      fi
+
+                      echo "Canary: $CANARY"
+                      echo "Stable: $STABLE"
+
+                      echo "##vso[task.setvariable variable=CANARY]$CANARY"
+                      echo "##vso[task.setvariable variable=STABLE]$STABLE"
+
+                - task: AzureCLI@2
+                  displayName: Shift traffic to the canary
+                  condition: eq('${{ parameters.action }}', 'shift')
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      PERCENT='${{ parameters.percent }}'
+                      REMAINDER=$((100 - PERCENT))
+
+                      az containerapp ingress traffic set \
+                        --name "$(appName)" \
+                        --resource-group "$(resourceGroup)" \
+                        --revision-weight \
+                          "$(CANARY)=$PERCENT" \
+                          "$(STABLE)=$REMAINDER"
+
+                - task: AzureCLI@2
+                  displayName: Roll back to stable
+                  condition: eq('${{ parameters.action }}', 'rollback')
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az containerapp ingress traffic set \
+                        --name "$(appName)" \
+                        --resource-group "$(resourceGroup)" \
+                        --revision-weight \
+                          "$(STABLE)=100" \
+                          "$(CANARY)=0"
+
+                - task: AzureCLI@2
+                  displayName: Promote the canary
+                  condition: eq('${{ parameters.action }}', 'promote')
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az containerapp ingress traffic set \
+                        --name "$(appName)" \
+                        --resource-group "$(resourceGroup)" \
+                        --revision-weight \
+                          "$(CANARY)=100"
+
+                      # Keep the old stable revision available for fast recovery,
+                      # but remove it from the active revision set.
+                      az containerapp revision deactivate \
+                        --name "$(appName)" \
+                        --resource-group "$(resourceGroup)" \
+                        --revision "$(STABLE)"
+
+                - task: AzureCLI@2
+                  displayName: Report resulting split
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      echo "Traffic after '${{ parameters.action }}':"
+                      echo ""
+
+                      az containerapp ingress traffic show \
+                        --name "$(appName)" \
+                        --resource-group "$(resourceGroup)" \
+                        -o table

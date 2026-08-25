@@ -15,14 +15,17 @@ var baseIngress = {
   external: true
   targetPort: containerPort
   transport: 'auto'
-  // The frontend is a Vite build with content-hashed asset filenames, and each
-  // revision only carries its own dist/. Without affinity a browser can load
-  // index.html from one revision and then request its JS from the other, which
-  // nginx answers with index.html (try_files) as text/html -- a blank page.
-  // Affinity pins a visitor to a single revision for their session.
-  stickySessions: {
-    affinity: 'sticky'
-  }
+  // Sticky sessions would pin a visitor to one revision for their whole
+  // session, which is what a canary split really wants -- but Container Apps
+  // rejects session affinity outright when activeRevisionsMode is 'Multiple'
+  // (ContainerAppInvalidIngressStickySessionRevisionMode), and Multiple mode
+  // is required for two revisions to be alive at once. Accepted tradeoff:
+  // without affinity, a Vite build's content-hashed assets mean a browser
+  // mid-shift can load index.html from one revision and a JS chunk from the
+  // other, which nginx's try_files answers with index.html instead -- a
+  // blank page. The candidate's own labeled URL (0% traffic, single
+  // revision) is unaffected, so smoke-testing before a shift is safe either
+  // way; the exposure is only during a live 'shift' window.
 }
 
 var bootstrapTraffic = {

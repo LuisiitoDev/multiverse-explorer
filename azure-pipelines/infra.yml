@@ -1,0 +1,291 @@
+name: "Multiverse Explorer - Infra"
+
+trigger:
+  branches:
+    include:
+      - main
+
+  paths:
+    include:
+      - infra/*
+
+parameters:
+  - name: routeTrafficToLatestRevision
+    displayName: Bootstrap traffic to the newest revision (leave off once CD owns the weights)
+    type: boolean
+    default: false
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  azureServiceConnection: "rick-and-morty"
+  resourceGroup: "rick-and-morty"
+  location: "westus2"
+  templateFile: "infra/main.bicep"
+
+stages:
+  - stage: DeployDevInfra
+    displayName: Deploy Dev Infra
+
+    jobs:
+      - deployment: DeployDevInfra
+        displayName: Deploy Dev Container App
+        environment: multiverse-dev
+
+        variables:
+          appName: rick-and-morty-dev-app
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                # Reads the image currently running so an infrastructure deploy
+                # never replaces the application. A hardcoded placeholder here
+                # would wipe the running app's image on every infra-only run.
+                - task: AzureCLI@2
+                  displayName: Resolve the currently deployed image
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      CURRENT=$(az containerapp show \
+                          --name "$(appName)" \
+                          --resource-group "$(resourceGroup)" \
+                          --query "properties.template.containers[0].image" -o tsv 2>/dev/null || true)
+
+                      if [ -z "$CURRENT" ]; then
+                        # First ever deploy: nothing is running yet, so seed with
+                        # the placeholder. CD replaces it on the next push.
+                        CURRENT="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+                        echo "No existing container app found; bootstrapping with the placeholder image."
+                      fi
+
+                      echo "Deploying with image: $CURRENT"
+                      echo "##vso[task.setvariable variable=ContainerImage]$CURRENT"
+
+                - task: AzureCLI@2
+                  displayName: Create resource group if not exists
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az group create \
+                          --name "$(resourceGroup)" \
+                          --location "$(location)"
+
+                - task: AzureCLI@2
+                  displayName: Validate Bicep
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az deployment group validate \
+                          --resource-group "$(resourceGroup)" \
+                          --template-file "$(templateFile)" \
+                          --parameters \
+                            location="$(location)" \
+                            appName="$(appName)" \
+                            containerImage="$(ContainerImage)" \
+                            routeTrafficToLatestRevision=${{ lower(parameters.routeTrafficToLatestRevision) }} \
+                          --output none
+
+                - task: AzureCLI@2
+                  displayName: Deploy Bicep
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az deployment group create \
+                          --name "deploy-$(appName)-$(Build.BuildId)" \
+                          --resource-group "$(resourceGroup)" \
+                          --template-file "$(templateFile)" \
+                          --parameters \
+                            location="$(location)" \
+                            appName="$(appName)" \
+                            containerImage="$(ContainerImage)" \
+                            routeTrafficToLatestRevision=${{ lower(parameters.routeTrafficToLatestRevision) }}
+
+  - stage: DeployStagingInfra
+    displayName: Deploy Staging Infra
+    dependsOn: DeployDevInfra
+
+    jobs:
+      - deployment: DeployStagingInfra
+        displayName: Deploy Staging Container App
+        environment: multiverse-staging
+
+        variables:
+          appName: rick-and-morty-staging-app
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: AzureCLI@2
+                  displayName: Resolve the currently deployed image
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      CURRENT=$(az containerapp show \
+                          --name "$(appName)" \
+                          --resource-group "$(resourceGroup)" \
+                          --query "properties.template.containers[0].image" -o tsv 2>/dev/null || true)
+
+                      if [ -z "$CURRENT" ]; then
+                        CURRENT="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+                        echo "No existing container app found; bootstrapping with the placeholder image."
+                      fi
+
+                      echo "Deploying with image: $CURRENT"
+                      echo "##vso[task.setvariable variable=ContainerImage]$CURRENT"
+
+                - task: AzureCLI@2
+                  displayName: Create resource group if not exists
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az group create \
+                          --name "$(resourceGroup)" \
+                          --location "$(location)"
+
+                - task: AzureCLI@2
+                  displayName: Validate Bicep
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az deployment group validate \
+                          --resource-group "$(resourceGroup)" \
+                          --template-file "$(templateFile)" \
+                          --parameters \
+                            location="$(location)" \
+                            appName="$(appName)" \
+                            containerImage="$(ContainerImage)" \
+                            routeTrafficToLatestRevision=${{ lower(parameters.routeTrafficToLatestRevision) }} \
+                          --output none
+
+                - task: AzureCLI@2
+                  displayName: Deploy Bicep
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az deployment group create \
+                          --name "deploy-$(appName)-$(Build.BuildId)" \
+                          --resource-group "$(resourceGroup)" \
+                          --template-file "$(templateFile)" \
+                          --parameters \
+                            location="$(location)" \
+                            appName="$(appName)" \
+                            containerImage="$(ContainerImage)" \
+                            routeTrafficToLatestRevision=${{ lower(parameters.routeTrafficToLatestRevision) }}
+
+  - stage: DeployProdInfra
+    displayName: Deploy Prod Infra
+    dependsOn: DeployStagingInfra
+
+    jobs:
+      - deployment: DeployProdInfra
+        displayName: Deploy Prod Container App
+        environment: multiverse-prod
+
+        variables:
+          appName: rick-and-morty-prod-app
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: AzureCLI@2
+                  displayName: Resolve the currently deployed image
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      CURRENT=$(az containerapp show \
+                          --name "$(appName)" \
+                          --resource-group "$(resourceGroup)" \
+                          --query "properties.template.containers[0].image" -o tsv 2>/dev/null || true)
+
+                      if [ -z "$CURRENT" ]; then
+                        CURRENT="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+                        echo "No existing container app found; bootstrapping with the placeholder image."
+                      fi
+
+                      echo "Deploying with image: $CURRENT"
+                      echo "##vso[task.setvariable variable=ContainerImage]$CURRENT"
+
+                - task: AzureCLI@2
+                  displayName: Create resource group if not exists
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az group create \
+                          --name "$(resourceGroup)" \
+                          --location "$(location)"
+
+                - task: AzureCLI@2
+                  displayName: Validate Bicep
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az deployment group validate \
+                          --resource-group "$(resourceGroup)" \
+                          --template-file "$(templateFile)" \
+                          --parameters \
+                            location="$(location)" \
+                            appName="$(appName)" \
+                            containerImage="$(ContainerImage)" \
+                            routeTrafficToLatestRevision=${{ lower(parameters.routeTrafficToLatestRevision) }} \
+                          --output none
+
+                - task: AzureCLI@2
+                  displayName: Deploy Bicep
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az deployment group create \
+                          --name "deploy-$(appName)-$(Build.BuildId)" \
+                          --resource-group "$(resourceGroup)" \
+                          --template-file "$(templateFile)" \
+                          --parameters \
+                            location="$(location)" \
+                            appName="$(appName)" \
+                            containerImage="$(ContainerImage)" \
+                            routeTrafficToLatestRevision=${{ lower(parameters.routeTrafficToLatestRevision) }}

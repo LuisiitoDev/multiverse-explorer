@@ -1,0 +1,74 @@
+name: "Multiverse Explorer - Recreated - Infra"
+
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: rick-and-morty-recreated
+  - name: templateFile
+    value: "infra/appservice.bicep"
+
+stages:
+  - stage: DeployInfra
+    displayName: Deploy Infra
+
+    jobs:
+      - deployment: DeployAppService
+        displayName: Deploy App Service
+        environment: recreated-strategy
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: AzureCLI@3
+                  displayName: Create resource group if not exists
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az group create \
+                        --name "$(resourceGroup)" \
+                        --location "$(location)"
+
+                - task: AzureCLI@3
+                  displayName: Validate Bicep
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az deployment group validate \
+                        --resource-group "$(resourceGroup)" \
+                        --template-file "$(templateFile)" \
+                        --parameters \
+                          location="$(location)" \
+                          appName="$(appName)" \
+                          sku="$(sku)" \
+                          skuCode="$(skuCode)" \
+                          appServicePlanName="$(appServicePlanName)" \
+                        --output none
+
+                - task: AzureCLI@3
+                  displayName: Deploy Bicep
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az deployment group create \
+                        --resource-group "$(resourceGroup)" \
+                        --template-file "$(templateFile)" \
+                        --parameters \
+                          location="$(location)" \
+                          appName="$(appName)" \
+                          sku="$(sku)" \
+                          skuCode="$(skuCode)" \
+                          appServicePlanName="$(appServicePlanName)"
+
+

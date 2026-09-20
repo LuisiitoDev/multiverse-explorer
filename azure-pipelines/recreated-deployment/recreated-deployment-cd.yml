@@ -5,8 +5,8 @@ pr: none
 
 resources:
   pipelines:
-    - pipeline: recreated-strategy-ci
-      source: recreated-strategy-ci
+    - pipeline: recreated-deployment-ci
+      source: recreated-deployment-ci
       trigger:
         branches:
           include:
@@ -31,7 +31,7 @@ stages:
         steps:
           - checkout: self
 
-          - download: recreated-strategy-ci
+          - download: recreated-deployment-ci
             artifact: dist
             displayName: Download build artifact
 
@@ -41,4 +41,4 @@ stages:
               azureSubscription: "$(azureServiceConnection)"
               appType: webAppLinux
               appName: "$(appName)"
-              package: "$(Pipeline.Workspace)/recreated-strategy-ci/dist"
+              package: "$(Pipeline.Workspace)/recreated-deployment-ci/dist"

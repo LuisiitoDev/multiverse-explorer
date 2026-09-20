@@ -15,17 +15,6 @@ var baseIngress = {
   external: true
   targetPort: containerPort
   transport: 'auto'
-  // Sticky sessions would pin a visitor to one revision for their whole
-  // session, which is what a canary split really wants -- but Container Apps
-  // rejects session affinity outright when activeRevisionsMode is 'Multiple'
-  // (ContainerAppInvalidIngressStickySessionRevisionMode), and Multiple mode
-  // is required for two revisions to be alive at once. Accepted tradeoff:
-  // without affinity, a Vite build's content-hashed assets mean a browser
-  // mid-shift can load index.html from one revision and a JS chunk from the
-  // other, which nginx's try_files answers with index.html instead -- a
-  // blank page. The candidate's own labeled URL (0% traffic, single
-  // revision) is unaffected, so smoke-testing before a shift is safe either
-  // way; the exposure is only during a live 'shift' window.
 }
 
 var bootstrapTraffic = {
@@ -62,14 +51,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
-      // 'Multiple' is what allows two revisions to be alive at once. Under the
-      // default 'Single', each deploy deactivates the previous revision and
-      // takes 100% of traffic, so there is nothing to split.
       activeRevisionsMode: 'Multiple'
-      // The traffic block is declared only while bootstrapping. Once the CD
-      // pipeline sets weights by revision name, redeclaring them here would
-      // reset the split on every infrastructure deploy, so the property is
-      // omitted and Azure keeps whatever the pipeline last set.
       ingress: ingressConfig
     }
     template: {

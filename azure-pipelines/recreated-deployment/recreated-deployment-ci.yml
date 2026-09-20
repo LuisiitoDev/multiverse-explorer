@@ -5,8 +5,8 @@ pr: none
 
 resources:
   pipelines:
-    - pipeline: recreated-strategy
-      source: recreated-strategy
+    - pipeline: recreated-deployment-infra
+      source: recreated-deployment-infra
       trigger:
         branches:
           include:

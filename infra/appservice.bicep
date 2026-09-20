@@ -9,7 +9,7 @@ resource plan 'Microsoft.Web/serverfarms@2025-03-01' = {
   location: location
   kind: 'linux'
   properties: {
-    reserved: false
+    reserved: true
     zoneRedundant: false
   }
   sku: {

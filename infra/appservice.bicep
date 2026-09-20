@@ -30,8 +30,7 @@ resource app 'Microsoft.Web/sites@2025-03-01' = {
     httpsOnly: true
     publicNetworkAccess: 'Enabled'
     siteConfig: {
-      linuxFxVersion: ''
-      netFrameworkVersion: 'v10.0'
+      linuxFxVersion: 'NODE|22-lts'
       alwaysOn: false
       ftpsState: 'FtpsOnly'
     }

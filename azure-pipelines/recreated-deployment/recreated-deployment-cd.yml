@@ -1,0 +1,44 @@
+name: "Multiverse Explorer - Recreated - CD"
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+    - pipeline: recreated-strategy-ci
+      source: recreated-strategy-ci
+      trigger:
+        branches:
+          include:
+            - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: rick-and-morty-recreated
+  - name: nodeVersion
+    value: "22.x"
+
+stages:
+  - stage: CD
+    displayName: Continuous Deployment
+
+    jobs:
+      - job: Publish
+        displayName: Publish Site
+
+        steps:
+          - checkout: self
+
+          - download: recreated-strategy-ci
+            artifact: dist
+            displayName: Download build artifact
+
+          - task: AzureWebApp@1
+            displayName: Deploy to App Service
+            inputs:
+              azureSubscription: "$(azureServiceConnection)"
+              appType: webAppLinux
+              appName: "$(appName)"
+              package: "$(Pipeline.Workspace)/recreated-strategy-ci/dist"

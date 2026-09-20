@@ -1,0 +1,69 @@
+name: "Multiverse Explorer - Recreated - CI"
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+    - pipeline: recreated-strategy
+      source: recreated-strategy
+      trigger:
+        branches:
+          include:
+            - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - name: nodeVersion
+    value: "22.x"
+
+stages:
+  - stage: CI
+    displayName: Continuous Integration
+
+    jobs:
+      - job: BuildAndTest
+        displayName: Build, Test and Analyze
+
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - task: UseNode@1
+            inputs:
+              version: $(nodeVersion)
+
+          - task: Cache@2
+            displayName: Cache npm
+            inputs:
+              key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: $(Pipeline.Workspace)/.npm
+
+          - script: npm ci
+            workingDirectory: frontend
+            displayName: Install dependencies
+            env:
+              npm_config_cache: $(Pipeline.Workspace)/.npm
+
+          - script: npm run lint
+            workingDirectory: frontend
+            displayName: Lint
+
+          - script: npm run test:coverage
+            workingDirectory: frontend
+            displayName: Run tests with with coverage
+
+          - script: npm run build
+            workingDirectory: frontend
+            displayName: Build
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish build artifact
+            inputs:
+              targetPath: frontend/dist
+              artifact: dist
+              publishLocation: pipeline

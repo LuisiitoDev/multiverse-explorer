@@ -2,6 +2,7 @@ using Favorites.Api.Application.Abstractions;
 using Favorites.Api.Domain.Models;
 using Favorites.Api.Infraestructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace Favorites.Api.Infraestructure.Repositories;
 
@@ -31,8 +32,23 @@ public class FavoriteRepository(FavoritesDbContext context) : IFavoriteRepositor
             f => f.UserId == userId && f.ResourceType == resourceType && f.ResourceId == resourceId,
             cancellationToken);
 
-    public async Task AddAsync(FavoriteModel favorite, CancellationToken cancellationToken = default) =>
+    public async Task<bool> TryAddAsync(FavoriteModel favorite, CancellationToken cancellationToken = default)
+    {
         await context.Favorites.AddAsync(favorite, cancellationToken);
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateException exception) when (
+            exception.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            // The unique index is authoritative when concurrent requests pass the existence check.
+            context.Entry(favorite).State = EntityState.Detached;
+            return false;
+        }
+    }
 
     public void Remove(FavoriteModel favorite) => context.Favorites.Remove(favorite);
 

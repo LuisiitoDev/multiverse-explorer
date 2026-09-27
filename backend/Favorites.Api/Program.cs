@@ -23,6 +23,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler();
+}
+
 app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
@@ -54,3 +59,6 @@ app.MapAuthEndpoints();
 app.MapFavoriteEndpoints();
 
 await app.RunAsync();
+
+// Exposes the entry point to application integration tests.
+public partial class Program { }

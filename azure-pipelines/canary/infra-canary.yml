@@ -17,6 +17,8 @@ pool:
 # Define pipeline variables and variable groups
 variables:
   - group: rick-and-morty-variables
+  - name: bicepFile
+    value: "azure-pipelines/canary/infra/azdo-canary.bicep"
 
 # Define the stages of the pipeline
 stages:
@@ -58,11 +60,11 @@ stages:
                     inlineScript: |
                       az deployment group validate \
                         --resource-group "$(resourceGroup)" \
-                        --template-file "azure-pipelines/canary/infra/azdo-canary.bicep" \
+                        --template-file "$(bicepFile)" \
                         --parameters \
                           location="$(location)" \
                           appName="$(appName)" \
-                          containerImage="$(ContainerImage)" \
+                          containerImage="$(containerImage)" \
                         --output none
 
                 # Deploy the Bicep template to the resource group
@@ -75,8 +77,8 @@ stages:
                     inlineScript: |
                       az deployment group create \
                         --resource-group "$(resourceGroup)" \
-                        --template-file "azure-pipelines/canary/infra/azdo-canary.bicep" \
+                        --template-file "$(bicepFile)" \
                         --parameters \
                           location="$(location)" \
                           appName="$(appName)" \
-                          containerImage="$(ContainerImage)"
+                          containerImage="$(containerImage)"

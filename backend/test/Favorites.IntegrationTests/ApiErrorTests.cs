@@ -3,8 +3,8 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using Favorites.Api.Application.Abstractions;
-using Favorites.Api.Domain.Models;
+using Favorites.Application.Abstractions;
+using Favorites.Domain.Models;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
-namespace Favorites.Api.Tests.Endpoints;
+namespace Favorites.IntegrationTests;
 
 public class ApiErrorTests
 {

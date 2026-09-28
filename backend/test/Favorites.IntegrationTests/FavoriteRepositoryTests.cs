@@ -1,11 +1,11 @@
 using System.Reflection;
-using Favorites.Api.Domain.Models;
-using Favorites.Api.Infraestructure.Persistence;
-using Favorites.Api.Infraestructure.Repositories;
+using Favorites.Domain.Models;
+using Favorites.Infrastructure.Persistence;
+using Favorites.Infrastructure.Repositories;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
-namespace Favorites.Api.Tests.Infraestructure.Repositories;
+namespace Favorites.IntegrationTests;
 
 public class FavoriteRepositoryTests
 {

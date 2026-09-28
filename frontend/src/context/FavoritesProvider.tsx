@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { createFavorite, deleteFavorite, fetchFavorites } from '../services/favoritesApi'
 import type { Favorite, FavoriteResourceType } from '../types/favorite'
+import { useFeatureFlag } from '../hooks/useFeatureFlag'
 
 type FavoriteError = Error & { status?: number }
 
@@ -23,13 +24,16 @@ function favoriteKey(resourceType: FavoriteResourceType, resourceId: number) {
 }
 
 export function FavoritesProvider({ children }: Readonly<{ children: React.ReactNode }>) {
+  const isEnabled = useFeatureFlag('myMultiverse')
   const [favorites, setFavorites] = useState<Favorite[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(isEnabled)
   const [error, setError] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
+    if (!isEnabled) return
+
     setIsLoading(true)
     setError(null)
 
@@ -48,13 +52,15 @@ export function FavoritesProvider({ children }: Readonly<{ children: React.React
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [isEnabled])
 
   useEffect(() => {
-    queueMicrotask(() => void refresh())
-  }, [refresh])
+    if (isEnabled) queueMicrotask(() => void refresh())
+  }, [isEnabled, refresh])
 
   const add = useCallback(async (resourceType: FavoriteResourceType, resourceId: number) => {
+    if (!isEnabled) return
+
     const key = favoriteKey(resourceType, resourceId)
     if (favorites.some((favorite) => favoriteKey(favorite.resourceType, favorite.resourceId) === key)) {
       return
@@ -80,9 +86,11 @@ export function FavoritesProvider({ children }: Readonly<{ children: React.React
     } finally {
       setPendingKey(null)
     }
-  }, [favorites])
+  }, [favorites, isEnabled])
 
   const remove = useCallback(async (favoriteId: number) => {
+    if (!isEnabled) return
+
     setPendingKey(`id:${favoriteId}`)
     setError(null)
     try {
@@ -95,7 +103,7 @@ export function FavoritesProvider({ children }: Readonly<{ children: React.React
     } finally {
       setPendingKey(null)
     }
-  }, [])
+  }, [isEnabled])
 
   const value = useMemo<FavoritesContextValue>(() => ({
     favorites,

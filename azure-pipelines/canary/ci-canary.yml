@@ -1,0 +1,83 @@
+name: "CI - Multiverse-Explorer-Canary-$(Date:yyyyMMdd)$(Rev:.r)"
+
+trigger: none
+pr:
+  branches:
+    include: [feature/canary]
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  NODE_VERSION: "22.x"
+  DOTNET_VERSION: "10.x"
+  FRONTEND_DIR: "frontend"
+  BACKEND_SLN: "multiverse-explorer.slnx"
+
+stages:
+  - stage: CI_Frontend
+    displayName: CI - FRONTEND
+
+    jobs:
+      - job: BuildAndTest
+        displayName: Build and Test Frontend
+
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - task: UseNode@1
+            inputs:
+              version: $(NODE_VERSION)
+
+          - task: Cache@2
+            displayName: Cache npm
+            inputs:
+              key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: $(Pipeline.Workspace)/.npm
+
+          - script: npm ci
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: Install dependencies
+            env:
+              npm_config_cache: $(Pipeline.Workspace)/.npm
+
+          - script: npm run lint
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: Lint Frontend
+
+          - script: npm run build
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: Build Frontend
+
+          - script: npm run test
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: Test Frontend
+
+  - stage: CI_BACKEND
+    dependsOn: [CI_Frontend]
+    displayName: CI BACKEND
+
+    jobs:
+      - job: BuildAndTestBackend
+        displayName: Build and Test Backend
+
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - task: UseDotNet@2
+            inputs:
+              packageType: "sdk"
+              version: $(DOTNET_VERSION)
+
+          - script: dotnet restore $(BACKEND_SLN)
+            displayName: Restore Backend Dependencies
+
+          - script: dotnet build $(BACKEND_SLN) --configuration Release --no-restore
+            displayName: Build Backend
+
+          - script: dotnet test $(BACKEND_SLN) --configuration Release --no-restore --no-build
+            displayName: Test Backend

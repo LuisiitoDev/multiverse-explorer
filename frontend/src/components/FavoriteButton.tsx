@@ -1,6 +1,7 @@
 import { FaStar, FaRegStar } from 'react-icons/fa'
 import { useFavorites } from '../context/FavoritesProvider'
 import { useAuthProviders } from '../hooks/useAuthProviders'
+import { useFeatureFlag } from '../hooks/useFeatureFlag'
 import { loginUrl } from '../services/authApi'
 import type { FavoriteResourceType } from '../types/favorite'
 
@@ -10,6 +11,14 @@ type FavoriteButtonProps = Readonly<{
 }>
 
 function FavoriteButton({ resourceType, resourceId }: FavoriteButtonProps) {
+  const isEnabled = useFeatureFlag('myMultiverse')
+
+  if (!isEnabled) return null
+
+  return <EnabledFavoriteButton resourceType={resourceType} resourceId={resourceId} />
+}
+
+function EnabledFavoriteButton({ resourceType, resourceId }: FavoriteButtonProps) {
   const { isAuthenticated, pendingKey, find, add, remove } = useFavorites()
   const { providers, isLoading: providersLoading } = useAuthProviders()
   const favorite = find(resourceType, resourceId)

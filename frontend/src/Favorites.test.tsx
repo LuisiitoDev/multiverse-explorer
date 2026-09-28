@@ -1,10 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import FeatureFlagsProvider from './context/FeatureFlagsProvider'
 import { FavoritesProvider } from './context/FavoritesProvider'
 import FavoriteButton from './components/FavoriteButton'
 import Header from './components/Header'
 import MyMultiverseView from './components/MyMultiverseView'
+import { createStaticFeatureFlagStrategy } from './services/featureFlags'
 import type { Character } from './types/character'
 import type { Episode } from './types/episode'
 import type { Location } from './types/location'
@@ -28,12 +30,24 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
 }
 
-function renderFavorites(child: React.ReactNode) {
-  return render(<FavoritesProvider>{child}</FavoritesProvider>)
+function renderFavorites(child: React.ReactNode, myMultiverseEnabled = true) {
+  return render(
+    <FeatureFlagsProvider strategy={createStaticFeatureFlagStrategy({ myMultiverse: myMultiverseEnabled })}>
+      <FavoritesProvider>{child}</FavoritesProvider>
+    </FeatureFlagsProvider>,
+  )
 }
 
 describe('Favorites / My Multiverse', () => {
   afterEach(() => vi.restoreAllMocks())
+
+  it('keeps favorites controls and API requests disabled when the feature flag is off', () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    renderFavorites(<FavoriteButton resourceType="character" resourceId={1} />, false)
+
+    expect(screen.queryByRole('button', { name: /my multiverse/i })).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 
   it('loads an existing favorite as saved and prevents duplicate POSTs', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {

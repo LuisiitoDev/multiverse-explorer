@@ -1,4 +1,6 @@
-const AUTH_BASE_URL = `${window.location.origin}/api/auth`
+import { API_BASE_URL } from './apiBaseUrl'
+
+const AUTH_BASE_URL = `${API_BASE_URL}/api/auth`
 
 export type AuthProvider = {
   name: string

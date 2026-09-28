@@ -1,6 +1,7 @@
 import type { Favorite, FavoriteResourceType } from '../types/favorite'
+import { API_BASE_URL } from './apiBaseUrl'
 
-const FAVORITES_URL = `${window.location.origin}/api/favorites`
+const FAVORITES_URL = `${API_BASE_URL}/api/favorites`
 const CSRF_COOKIE = 'XSRF-TOKEN'
 const CSRF_HEADER = 'X-CSRF-TOKEN'
 

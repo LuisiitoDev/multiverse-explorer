@@ -13,8 +13,12 @@ FROM base AS build
 # setting them on the running container would have no effect.
 ARG VITE_FEATURE_CHARACTER_MODAL_V2
 ENV VITE_FEATURE_CHARACTER_MODAL_V2=$VITE_FEATURE_CHARACTER_MODAL_V2
+ARG VITE_FEATURE_MY_MULTIVERSE
+ENV VITE_FEATURE_MY_MULTIVERSE=$VITE_FEATURE_MY_MULTIVERSE
+ARG VITE_API_BASE_URL
 
-RUN npm run build
+RUN if [ -z "$VITE_API_BASE_URL" ]; then unset VITE_API_BASE_URL; fi \
+    && npm run build
 
 FROM nginx:1.27-alpine
 

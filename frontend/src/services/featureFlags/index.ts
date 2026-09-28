@@ -1,11 +1,14 @@
-import type { FeatureFlagKey, FeatureFlagStrategy } from '../../types/featureFlag'
-import { createCompositeFeatureFlagStrategy } from './compositeFeatureFlagStrategy'
-import { createEnvironmentFeatureFlagStrategy } from './environmentFeatureFlagStrategy'
-import { createStaticFeatureFlagStrategy } from './staticFeatureFlagStrategy'
+import type {
+  FeatureFlagKey,
+  FeatureFlagStrategy,
+} from "../../types/featureFlag";
+import { createCompositeFeatureFlagStrategy } from "./compositeFeatureFlagStrategy";
+import { createEnvironmentFeatureFlagStrategy } from "./environmentFeatureFlagStrategy";
+import { createStaticFeatureFlagStrategy } from "./staticFeatureFlagStrategy";
 
-export { createCompositeFeatureFlagStrategy } from './compositeFeatureFlagStrategy'
-export { createEnvironmentFeatureFlagStrategy } from './environmentFeatureFlagStrategy'
-export { createStaticFeatureFlagStrategy } from './staticFeatureFlagStrategy'
+export { createCompositeFeatureFlagStrategy } from "./compositeFeatureFlagStrategy";
+export { createEnvironmentFeatureFlagStrategy } from "./environmentFeatureFlagStrategy";
+export { createStaticFeatureFlagStrategy } from "./staticFeatureFlagStrategy";
 
 /**
  * The value a flag takes when nothing else decides. New features start off.
@@ -13,7 +16,7 @@ export { createStaticFeatureFlagStrategy } from './staticFeatureFlagStrategy'
 export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, boolean> = {
   characterModalV2: false,
   myMultiverse: false,
-}
+};
 
 /**
  * The application's default chain: environment first, defaults last. This is
@@ -24,5 +27,5 @@ export function createDefaultFeatureFlagStrategy(): FeatureFlagStrategy {
   return createCompositeFeatureFlagStrategy([
     createEnvironmentFeatureFlagStrategy(),
     createStaticFeatureFlagStrategy(DEFAULT_FEATURE_FLAGS),
-  ])
+  ]);
 }

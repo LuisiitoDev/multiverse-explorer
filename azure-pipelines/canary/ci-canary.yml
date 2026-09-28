@@ -5,9 +5,8 @@ trigger:
   branches:
     include: [feature/canary]
 
-pr:
-  branches:
-    include: [feature/canary]
+# Runs once per commit on feature/canary only; PRs do not trigger it.
+pr: none
 
 pool:
   vmImage: ubuntu-latest

@@ -1,6 +1,10 @@
 name: "Multiverse-Explorer-Canary-$(Date:yyyyMMdd)$(Rev:.r)"
 
-# Trigger pipeline on changes to the main branch and specific Bicep file
+# Deploys real infrastructure, so it must never run on PRs. Without this line
+# Azure Pipelines runs it for every PR against any branch.
+pr: none
+
+# Trigger pipeline on changes to the feature/canary branch and specific Bicep file
 trigger:
   branches:
     include:

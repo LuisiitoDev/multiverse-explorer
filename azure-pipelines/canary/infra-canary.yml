@@ -4,7 +4,7 @@ name: "Multiverse-Explorer-Canary-$(Date:yyyyMMdd)$(Rev:.r)"
 trigger:
   branches:
     include:
-      - main
+      - feature/canary
 
   paths:
     include:

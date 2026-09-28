@@ -52,8 +52,10 @@ public class FavoriteService(IFavoriteRepository favorites, IUserRepository user
             CreateAt = clock.GetUtcNow().UtcDateTime
         };
 
-        await favorites.AddAsync(favorite, cancellationToken);
-        await favorites.SaveChangesAsync(cancellationToken);
+        if (!await favorites.TryAddAsync(favorite, cancellationToken))
+        {
+            return Result<FavoriteResponse>.Failure(Error.Conflict("The resource is already in the user's favorites."));
+        }
 
         return Result<FavoriteResponse>.Success(favorite.ToResponse());
     }

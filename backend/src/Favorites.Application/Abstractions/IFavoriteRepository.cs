@@ -10,7 +10,8 @@ public interface IFavoriteRepository
 
     Task<bool> ExistsAsync(Guid userId, string resourceType, int resourceId, CancellationToken cancellationToken = default);
 
-    Task AddAsync(FavoriteModel favorite, CancellationToken cancellationToken = default);
+    /// <summary>Persists a favorite; returns false only for a duplicate key.</summary>
+    Task<bool> TryAddAsync(FavoriteModel favorite, CancellationToken cancellationToken = default);
 
     void Remove(FavoriteModel favorite);
 

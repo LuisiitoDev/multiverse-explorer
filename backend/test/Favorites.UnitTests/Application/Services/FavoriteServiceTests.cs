@@ -20,6 +20,7 @@ public class FavoriteServiceTests
     {
         _sut = new FavoriteService(_favorites, _users, _validation, _clock);
         _users.ExistsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        _favorites.TryAddAsync(Arg.Any<FavoriteModel>(), Arg.Any<CancellationToken>()).Returns(true);
     }
 
     [Fact]
@@ -95,7 +96,7 @@ public class FavoriteServiceTests
         Assert.True(result.IsFailure);
         Assert.Equal(error, result.Error);
         await _users.DidNotReceive().ExistsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-        await _favorites.DidNotReceive().AddAsync(Arg.Any<FavoriteModel>(), Arg.Any<CancellationToken>());
+        await _favorites.DidNotReceive().TryAddAsync(Arg.Any<FavoriteModel>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -109,7 +110,7 @@ public class FavoriteServiceTests
 
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorType.NotFound, result.Error.Type);
-        await _favorites.DidNotReceive().AddAsync(Arg.Any<FavoriteModel>(), Arg.Any<CancellationToken>());
+        await _favorites.DidNotReceive().TryAddAsync(Arg.Any<FavoriteModel>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -123,7 +124,7 @@ public class FavoriteServiceTests
 
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorType.Conflict, result.Error.Type);
-        await _favorites.DidNotReceive().AddAsync(Arg.Any<FavoriteModel>(), Arg.Any<CancellationToken>());
+        await _favorites.DidNotReceive().TryAddAsync(Arg.Any<FavoriteModel>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -136,14 +137,27 @@ public class FavoriteServiceTests
         var result = await _sut.CreateAsync(command);
 
         Assert.True(result.IsSuccess);
-        await _favorites.Received(1).AddAsync(
+        await _favorites.Received(1).TryAddAsync(
             Arg.Is<FavoriteModel>(f => f.UserId == userId && f.ResourceType == "character" && f.ResourceId == 5),
             Arg.Any<CancellationToken>());
-        await _favorites.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _favorites.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
         Assert.Equal(userId, result.Value!.UserId);
         Assert.Equal("character", result.Value.ResourceType);
         Assert.Equal(5, result.Value.ResourceId);
         Assert.Equal(_clock.GetUtcNow().UtcDateTime, result.Value.CreateAt);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenConcurrentInsertWins_ReturnsConflict()
+    {
+        var command = new CreateFavoriteCommand(Guid.NewGuid(), "character", 1);
+        _favorites.TryAddAsync(Arg.Any<FavoriteModel>(), Arg.Any<CancellationToken>()).Returns(false);
+
+        var result = await _sut.CreateAsync(command);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Conflict, result.Error.Type);
+        await _favorites.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

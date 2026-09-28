@@ -1,0 +1,141 @@
+name: "Multiverse-Explorer-Canary-$(Date:yyyyMMdd)$(Rev:.r)"
+
+# Trigger pipeline on changes to the main branch and specific Bicep file
+trigger:
+  branches:
+    include:
+      - main
+
+  paths:
+    include:
+      - azure-pipelines/canary/infra/azdo-canary.bicep
+
+# Use the latest Ubuntu image for the build agent
+pool:
+  vmImage: "ubuntu-latest"
+
+# Define pipeline variables and variable groups
+variables:
+  - group: rick-and-morty-variables
+  - name: bicepFile
+    value: "azure-pipelines/canary/infra/azdo-canary.bicep"
+
+# Define the stages of the pipeline
+stages:
+  - stage: DeployCanaryInfra
+    displayName: Deploy Canary Infra
+
+    # Define the jobs for the DeployCanaryInfra stage
+    jobs:
+      - deployment: DeployContainerApp
+        displayName: Deploy Multiverse Container App
+        environment: multiverse-canary
+        # Define the deployment strategy for the job
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # Checkout the repository containing the Bicep template
+                - checkout: self
+
+                # Create the resource group if it does not exist
+                - task: AzureCLI@2
+                  displayName: Create resource group if not exists
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az group create \
+                        --name "$(resourceGroup)" \
+                        --location "$(location)"
+
+                # Set the stableRevision and currentImage variables for subsequent tasks
+                - task: AzureCLI@2
+                  displayName: Read current stable
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+
+                      # Initialize the stable revision and current image variables
+                      STABLE=""; IMAGE="$(containerImage)"
+
+                      # Check if a stable revision exists for the container app
+                      if az containerapp show -n "$(appName)" -g "$(resourceGroup)" --query "properties.configuration.ingress.traffic[?label=='stable'].revisionName" -o tsv; then
+                        STABLE=$(az containerapp show -n "$(appName)" -g "$(resourceGroup)" --query "properties.configuration.ingress.traffic[?label=='stable'].revisionName" -o tsv)
+                      fi
+
+                      # Export the stableRevision and currentImage as pipeline variables
+                      echo "##vso[task.setvariable variable=stableRevision]$STABLE"
+                      echo "##vso[task.setvariable variable=currentImage]$IMAGE"
+
+                # Validate the Bicep template before deployment
+                - task: AzureCLI@2
+                  displayName: Validate Bicep
+                  env:
+                    SQL_ADMIN_PASSWORD: $(sqlAdminPassword)
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+
+                      # Fail fast if the secret is missing from the variable group
+                      # (an undefined variable is passed through as the unexpanded macro text)
+                      if [ -z "${SQL_ADMIN_PASSWORD:-}" ] || [[ "$SQL_ADMIN_PASSWORD" == '$('*')' ]]; then
+                        echo "##vso[task.logissue type=error]sqlAdminPassword is not set in the rick-and-morty-variables group"
+                        exit 1
+                      fi
+
+                      az deployment group validate \
+                        --resource-group "$(resourceGroup)" \
+                        --template-file "$(bicepFile)" \
+                        --parameters \
+                          location="$(location)" \
+                          appName="$(appName)" \
+                          containerImage="$(currentImage)" \
+                          stableRevision="$(stableRevision)" \
+                          sqlAdminPassword="$SQL_ADMIN_PASSWORD" \
+                        --output none
+
+                # Deploy the Bicep template to the resource group
+                - task: AzureCLI@2
+                  name: deployBicep
+                  displayName: Deploy Bicep
+                  env:
+                    SQL_ADMIN_PASSWORD: $(sqlAdminPassword)
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+
+                      OUTPUTS=$(az deployment group create \
+                        --name "deploy-$(appName)-$(Build.BuildId)" \
+                        --resource-group "$(resourceGroup)" \
+                        --template-file "$(bicepFile)" \
+                        --parameters \
+                          location="$(location)" \
+                          appName="$(appName)" \
+                          containerImage="$(currentImage)" \
+                          stableRevision="$(stableRevision)" \
+                          sqlAdminPassword="$SQL_ADMIN_PASSWORD" \
+                        --query properties.outputs \
+                        --output json)
+
+                      # Export the Bicep outputs as pipeline variables
+                      APP_FQDN=$(echo "$OUTPUTS" | jq -r '.appFqdn.value')
+                      BACKEND_HOST=$(echo "$OUTPUTS" | jq -r '.backendHostName.value')
+                      SQL_FQDN=$(echo "$OUTPUTS" | jq -r '.sqlServerFqdn.value')
+
+                      echo "Frontend: https://$APP_FQDN"
+                      echo "Backend:  https://$BACKEND_HOST"
+                      echo "SQL:      $SQL_FQDN"
+
+                      echo "##vso[task.setvariable variable=appFqdn;isOutput=true]$APP_FQDN"
+                      echo "##vso[task.setvariable variable=backendHostName;isOutput=true]$BACKEND_HOST"
+                      echo "##vso[task.setvariable variable=sqlServerFqdn;isOutput=true]$SQL_FQDN"

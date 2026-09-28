@@ -1,6 +1,14 @@
 <Solution>
-  <Project Path="backend/Favorites.Api.Tests/Favorites.Api.Tests.csproj" />
-  <Project Path="backend/Favorites.Api/Favorites.Api.csproj" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/Favorites.Domain/Favorites.Domain.csproj" />
+    <Project Path="backend/src/Favorites.Application/Favorites.Application.csproj" />
+    <Project Path="backend/src/Favorites.Infrastructure/Favorites.Infrastructure.csproj" />
+    <Project Path="backend/src/Favorites.Api/Favorites.Api.csproj" />
+  </Folder>
+  <Folder Name="/backend/test/">
+    <Project Path="backend/test/Favorites.UnitTests/Favorites.UnitTests.csproj" />
+    <Project Path="backend/test/Favorites.IntegrationTests/Favorites.IntegrationTests.csproj" />
+  </Folder>
   <Project Path="docker-compose.dcproj">
     <Build />
   </Project>

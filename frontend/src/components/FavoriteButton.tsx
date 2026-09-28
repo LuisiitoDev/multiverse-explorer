@@ -1,45 +1,67 @@
-import { FaStar, FaRegStar } from 'react-icons/fa'
-import { useFavorites } from '../context/FavoritesProvider'
-import { useAuthProviders } from '../hooks/useAuthProviders'
-import { loginUrl } from '../services/authApi'
-import type { FavoriteResourceType } from '../types/favorite'
+import { FaStar, FaRegStar } from "react-icons/fa";
+import { useFavorites } from "../context/FavoritesProvider";
+import { useAuthProviders } from "../hooks/useAuthProviders";
+import { useFeatureFlag } from "../hooks/useFeatureFlag";
+import { loginUrl } from "../services/authApi";
+import type { FavoriteResourceType } from "../types/favorite";
 
 type FavoriteButtonProps = Readonly<{
-  resourceType: FavoriteResourceType
-  resourceId: number
-}>
+  resourceType: FavoriteResourceType;
+  resourceId: number;
+}>;
 
 function FavoriteButton({ resourceType, resourceId }: FavoriteButtonProps) {
-  const { isAuthenticated, pendingKey, find, add, remove } = useFavorites()
-  const { providers, isLoading: providersLoading } = useAuthProviders()
-  const favorite = find(resourceType, resourceId)
-  const isPending = pendingKey === `${resourceType}:${resourceId}` || pendingKey === `id:${favorite?.id}`
+  const isEnabled = useFeatureFlag("myMultiverse");
+
+  if (!isEnabled) return null;
+
+  return (
+    <EnabledFavoriteButton
+      resourceType={resourceType}
+      resourceId={resourceId}
+    />
+  );
+}
+
+function EnabledFavoriteButton({
+  resourceType,
+  resourceId,
+}: FavoriteButtonProps) {
+  const { isAuthenticated, pendingKey, find, add, remove } = useFavorites();
+  const { providers, isLoading: providersLoading } = useAuthProviders();
+  const favorite = find(resourceType, resourceId);
+  const isPending =
+    pendingKey === `${resourceType}:${resourceId}` ||
+    pendingKey === `id:${favorite?.id}`;
 
   const handleClick = async () => {
     if (favorite) {
-      await remove(favorite.id)
-      return
+      await remove(favorite.id);
+      return;
     }
 
-    await add(resourceType, resourceId).catch(() => undefined)
-  }
+    await add(resourceType, resourceId).catch(() => undefined);
+  };
 
   if (isAuthenticated === false) {
-    const provider = providers[0]
+    const provider = providers[0];
 
     if (providersLoading || !provider) {
       return (
         <span className="favorite-action" aria-busy="true">
           Sign in to save to My Multiverse
         </span>
-      )
+      );
     }
 
     return (
-      <a className="favorite-action" href={loginUrl(provider.name, window.location.pathname)}>
+      <a
+        className="favorite-action"
+        href={loginUrl(provider.name, window.location.pathname)}
+      >
         Sign in with {provider.displayName} to save to My Multiverse
       </a>
-    )
+    );
   }
 
   return (
@@ -49,12 +71,24 @@ function FavoriteButton({ resourceType, resourceId }: FavoriteButtonProps) {
       onClick={() => void handleClick()}
       disabled={isPending || isAuthenticated === null}
       aria-pressed={Boolean(favorite)}
-      aria-label={favorite ? 'Remove from My Multiverse' : 'Add to My Multiverse'}
+      aria-label={
+        favorite ? "Remove from My Multiverse" : "Add to My Multiverse"
+      }
     >
-      <>{favorite ? <FaStar aria-hidden="true" /> : <FaRegStar aria-hidden="true" />}</>{' '}
-      {isPending ? 'Updating My Multiverse...' : favorite ? 'Saved to My Multiverse' : 'Add to My Multiverse'}
+      <>
+        {favorite ? (
+          <FaStar aria-hidden="true" />
+        ) : (
+          <FaRegStar aria-hidden="true" />
+        )}
+      </>{" "}
+      {isPending
+        ? "Updating My Multiverse..."
+        : favorite
+          ? "Saved to My Multiverse"
+          : "Add to My Multiverse"}
     </button>
-  )
+  );
 }
 
-export default FavoriteButton
+export default FavoriteButton;

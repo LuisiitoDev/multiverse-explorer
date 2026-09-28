@@ -1,0 +1,121 @@
+name: "CI - Multiverse-Explorer-Canary-$(Date:yyyyMMdd)$(Rev:.r)"
+
+# Pushes to feature/canary must run CI so cd-canary's pipeline-completion trigger fires.
+trigger:
+  branches:
+    include: [feature/canary]
+
+pr:
+  branches:
+    include: [feature/canary]
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  NODE_VERSION: "22.x"
+  DOTNET_VERSION: "10.x"
+  FRONTEND_DIR: "frontend"
+  BACKEND_SLN: "multiverse-explorer.slnx"
+  BACKEND_API_PROJECT: "backend/src/Favorites.Api/Favorites.Api.csproj"
+
+stages:
+  - stage: CI_Frontend
+    displayName: CI - Frontend
+    dependsOn: []
+
+    jobs:
+      - job: BuildAndTestFrontend
+        displayName: Build and Test Frontend
+
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: UseNode@1
+            displayName: Use Node $(NODE_VERSION)
+            inputs:
+              version: $(NODE_VERSION)
+
+          - task: Cache@2
+            displayName: Cache npm
+            inputs:
+              key: 'npm | "$(Agent.OS)" | $(FRONTEND_DIR)/package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: $(Pipeline.Workspace)/.npm
+
+          - script: npm ci
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: Install dependencies
+            env:
+              npm_config_cache: $(Pipeline.Workspace)/.npm
+
+          - script: npm run lint
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: Lint Frontend
+
+          - script: npm run build
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: Build Frontend
+
+          - script: npm run test -- --reporter=default --reporter=junit --outputFile.junit=$(Agent.TempDirectory)/frontend-tests/junit.xml
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: Test Frontend
+
+          - task: PublishTestResults@2
+            displayName: Publish Frontend Test Results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: $(Agent.TempDirectory)/frontend-tests/junit.xml
+              testRunTitle: Frontend
+
+  - stage: CI_Backend
+    displayName: CI - Backend
+    dependsOn: []
+
+    jobs:
+      - job: BuildAndTestBackend
+        displayName: Build and Test Backend
+
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: UseDotNet@2
+            displayName: Use .NET SDK $(DOTNET_VERSION)
+            inputs:
+              packageType: "sdk"
+              version: $(DOTNET_VERSION)
+
+          - script: dotnet restore $(BACKEND_SLN)
+            displayName: Restore Backend Dependencies
+
+          - script: dotnet build $(BACKEND_SLN) --configuration Release --no-restore
+            displayName: Build Backend
+
+          - script: dotnet test $(BACKEND_SLN) --configuration Release --no-build --logger trx --results-directory $(Agent.TempDirectory)/backend-tests
+            displayName: Test Backend
+
+          - task: PublishTestResults@2
+            displayName: Publish Backend Test Results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: VSTest
+              testResultsFiles: $(Agent.TempDirectory)/backend-tests/*.trx
+              testRunTitle: Backend
+
+          # cd-canary deploys this exact package to App Service; PR builds never deploy.
+          - script: |
+              set -euo pipefail
+              dotnet publish $(BACKEND_API_PROJECT) --configuration Release --no-build --output $(Agent.TempDirectory)/backend-publish
+              mkdir -p $(Build.ArtifactStagingDirectory)/backend
+              cd $(Agent.TempDirectory)/backend-publish && zip -qr $(Build.ArtifactStagingDirectory)/backend/backend.zip .
+            displayName: Publish Backend Package
+            condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+
+          - publish: $(Build.ArtifactStagingDirectory)/backend
+            artifact: backend
+            displayName: Upload Backend Artifact
+            condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))

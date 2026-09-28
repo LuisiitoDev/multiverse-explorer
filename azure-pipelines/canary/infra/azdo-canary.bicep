@@ -4,8 +4,8 @@ param containerPort int = 80
 param appName string
 param stableRevision string = ''
 param backendAppName string = '${appName}-api'
-param backendSkuName string = 'F1'
-param backendSkuTier string = 'Free'
+param backendSkuName string = 'B1'
+param backendSkuTier string = 'Basic'
 param sqlServerName string = '${appName}-sql'
 param sqlDatabaseName string = 'FavoritesDb'
 param sqlAdminLogin string = 'sqladmin'

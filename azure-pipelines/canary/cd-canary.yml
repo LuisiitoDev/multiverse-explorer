@@ -1,0 +1,317 @@
+name: "CD - Multiverse-Explorer-Canary-$(Date:yyyyMMdd)$(Rev:.r)"
+
+pr: none
+trigger: none
+
+resources:
+  pipelines:
+    - pipeline: ci-canary
+      source: ci-canary
+      trigger:
+        branches:
+          include:
+            - feature/canary
+
+parameters:
+  - name: waves
+    type: object
+    default: [10, 50]
+  - name: bakeSeconds
+    type: number
+    default: 300
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: rick-and-morty-variables
+  - name: releaseBranch
+    value: refs/heads/feature/canary
+  - name: backendAppName
+    value: $(appName)-api
+  - name: tag
+    value: $(resources.pipeline.ci-canary.sourceCommit)
+  - name: suffix
+    value: b$(Build.BuildId)
+  - name: newRevision
+    value: $(appName)--b$(Build.BuildId)
+
+stages:
+  - stage: Check
+    jobs:
+      - job: Guard
+        steps:
+          - checkout: none
+          - script: |
+              if [ "$(resources.pipeline.ci-canary.sourceBranch)" != "$(releaseBranch)" ]; then
+                echo "##vso[task.logissue type=error]CI ran on $(resources.pipeline.ci-canary.sourceBranch), not $(releaseBranch). Stop."
+                exit 1
+              fi
+            displayName: Guard
+
+  # The backend runs on a Free App Service plan (no slots), so it is deployed in place
+  # before the frontend canary; changes must stay compatible with the stable frontend.
+  - stage: Backend
+    displayName: Deploy backend to App Service
+    dependsOn: Check
+    jobs:
+      - deployment: DeployBackend
+        displayName: Deploy Backend
+        environment: "canary"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ci-canary
+                  artifact: backend
+                  displayName: Download backend package
+
+                - task: AzureCLI@2
+                  name: deploy
+                  displayName: Deploy package to $(backendAppName)
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+                      # OneDeploy authenticates with Entra ID, so it works with basic publishing credentials disabled.
+                      az webapp deploy -n "$(backendAppName)" -g "$(resourceGroup)" \
+                        --src-path "$(Pipeline.Workspace)/ci-canary/backend/backend.zip" --type zip -o none
+
+                      HOST=$(az webapp show -n "$(backendAppName)" -g "$(resourceGroup)" --query defaultHostName -o tsv)
+                      echo "Backend: https://$HOST"
+                      echo "##vso[task.setvariable variable=backendHost;isOutput=true]$HOST"
+
+                - script: |
+                    URL="https://$(deploy.backendHost)/api/auth/providers"
+                    echo "Running smoke test for backend at $URL"
+                    # Free tier cold starts (plus migrations on startup) can take a while.
+                    for i in $(seq 1 20); do
+                      CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$URL" || echo 000)
+                      echo "try $i -> $CODE"
+                      [ "$CODE" = "200" ] && exit 0
+                      sleep 6
+                    done
+                    echo "##vso[task.logissue type=error]Backend unhealthy"
+                    exit 1
+                  displayName: Smoke test backend
+
+  - stage: Candidate
+    displayName: Publish image + candidate revision (0%)
+    dependsOn: Backend
+    jobs:
+      - job: Deploy
+        displayName: Publish Image
+        variables:
+          backendHost: $[ stageDependencies.Backend.DeployBackend.outputs['DeployBackend.deploy.backendHost'] ]
+
+        steps:
+          - checkout: self
+
+          - task: Docker@2
+            displayName: Log in to GHCR
+            inputs:
+              command: login
+              containerRegistry: $(dockerRegistryServiceConnection)
+
+          # buildAndPush ignores `arguments`, so build and push are separate to pass the build arg.
+          - task: Docker@2
+            displayName: Build Frontend Image
+            inputs:
+              command: build
+              containerRegistry: $(dockerRegistryServiceConnection)
+              repository: $(imageName)
+              Dockerfile: frontend/Dockerfile
+              buildContext: frontend
+              arguments: --build-arg VITE_API_BASE_URL=https://$(backendHost)
+              tags: |
+                $(tag)
+                $(suffix)
+
+          - task: Docker@2
+            displayName: Push Frontend Image
+            inputs:
+              command: push
+              containerRegistry: $(dockerRegistryServiceConnection)
+              repository: $(imageName)
+              tags: |
+                $(tag)
+                $(suffix)
+
+          - bash: |
+              set -e
+              IMAGE="ghcr.io/$(imageName):$(tag)"
+              echo "image = $IMAGE"
+              echo "##vso[task.setvariable variable=imageRef;isOutput=true]$IMAGE"
+            name: setImage
+            displayName: Set image reference
+
+      - deployment: DeployCandidate
+        displayName: Deploy Candidate Revision
+        environment: "canary"
+        dependsOn: Deploy
+        variables:
+          imageRef: $[ dependencies.Deploy.outputs['setImage.imageRef'] ]
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  name: rev
+                  displayName: New revision (0%) + canary label
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+                      az extension add -n containerapp --upgrade -y --only-show-errors
+                      A="-n $(appName) -g $(resourceGroup)"
+
+                      STABLE=$(az containerapp ingress traffic show $A \
+                                --query "[?label=='stable'].revisionName | [0]" -o tsv)
+
+                      # First run after infra: stable follows latestRevision, so the new revision
+                      # would take 100% at once. Pin stable to the current revision first.
+                      if [ -z "$STABLE" ]; then
+                        STABLE=$(az containerapp show $A --query properties.latestRevisionName -o tsv)
+                        [ -z "$STABLE" ] && { echo "##vso[task.logissue type=error]No stable revision found"; exit 1; }
+                        az containerapp ingress traffic set $A --revision-weight "$STABLE=100" -o none
+                        az containerapp revision label add $A --revision "$STABLE" --label stable --no-prompt -o none
+                      fi
+
+                      echo "Stable revision: $STABLE"
+                      echo "##vso[task.setvariable variable=stableRevision;isOutput=true]$STABLE"
+
+                      az containerapp update $A --image "$(imageRef)" --revision-suffix "$(suffix)" -o none
+
+                      az containerapp revision label add $A --revision "$(newRevision)" --label canary --no-prompt -o none
+
+                      az containerapp ingress traffic show $A -o table
+
+                - task: AzureCLI@2
+                  displayName: Smoke test canary
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az extension add -n containerapp --upgrade -y --only-show-errors
+                      DOMAIN=$(az containerapp env show -n "$(appName)-env" -g "$(resourceGroup)" --query properties.defaultDomain -o tsv)
+                      URL="https://$(appName)---canary.$DOMAIN/"
+                      echo "Running smoke test for canary deployment at $URL"
+                      FAIL=0
+                      for i in $(seq 1 10); do
+                        CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$URL" || echo 000)
+                        echo "try $i -> $CODE"
+                        [[ "$CODE" =~ ^[23] ]] || FAIL=$((FAIL+1))
+                        sleep 3
+                      done
+                      [ $FAIL -eq 0 ] || { echo "##vso[task.logissue type=error]Canary broken"; exit 1; }
+
+  # No explicit dependsOn: each wave follows the stage above it, so waves run in order.
+  - ${{ each w in parameters.waves }}:
+      - stage: Canary${{ w }}
+        displayName: Canary ${{ w }}%
+        jobs:
+          - job: Shift
+            steps:
+              - checkout: none
+
+              - task: AzureCLI@2
+                displayName: Shift traffic, canary ${{ w }}%
+                inputs:
+                  azureSubscription: "$(azureServiceConnection)"
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    set -euo pipefail
+                    az extension add -n containerapp --upgrade -y --only-show-errors
+                    CANARY=${{ w }}
+                    STABLE=$((100 - CANARY))
+                    echo "stable=$STABLE canary=$CANARY"
+                    az containerapp ingress traffic set -n "$(appName)" -g "$(resourceGroup)" \
+                      --label-weight stable=$STABLE canary=$CANARY -o table
+
+              - task: AzureCLI@2
+                displayName: Gate, watch ${{ parameters.bakeSeconds }}s
+                inputs:
+                  azureSubscription: "$(azureServiceConnection)"
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    az extension add -n containerapp --upgrade -y --only-show-errors
+                    DOMAIN=$(az containerapp env show -n "$(appName)-env" -g "$(resourceGroup)" \
+                      --query properties.defaultDomain -o tsv)
+                    URL="https://$(appName)---canary.$DOMAIN/"
+                    END=$((SECONDS + ${{ parameters.bakeSeconds }}))
+                    OK=0; FAIL=0
+                    while [ $SECONDS -lt $END ]; do
+                      CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$URL" || echo 000)
+                      if [[ "$CODE" =~ ^[23] ]]; then OK=$((OK+1)); else FAIL=$((FAIL+1)); fi
+                      sleep 2
+                    done
+                    TOTAL=$((OK+FAIL))
+                    echo "ok=$OK fail=$FAIL total=$TOTAL"
+                    # more than 2% errors -> fail -> Rollback runs
+                    if [ $TOTAL -eq 0 ] || [ $((FAIL*100/TOTAL)) -gt 2 ]; then
+                      echo "##vso[task.logissue type=error]Canary unhealthy"
+                      exit 1
+                    fi
+
+  - stage: Promote
+    dependsOn:
+      - Candidate
+      - ${{ each w in parameters.waves }}:
+          - Canary${{ w }}
+    jobs:
+      - deployment: Promote
+        environment: multiverse-canary-promote
+        variables:
+          oldStable: $[ stageDependencies.Candidate.DeployCandidate.outputs['DeployCandidate.rev.stableRevision'] ]
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: canary -> stable, 100%
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+                      az extension add -n containerapp --upgrade -y --only-show-errors
+                      A="-n $(appName) -g $(resourceGroup)"
+                      az containerapp revision label swap $A --source canary --target stable -o none
+                      az containerapp ingress traffic set $A --label-weight stable=100 canary=0 -o none
+                      az containerapp revision label remove $A --label canary -o none
+                      az containerapp revision deactivate $A --revision "$(oldStable)"
+                      az containerapp ingress traffic show $A -o table
+
+  # Rolls back the frontend only; the backend has no slot to swap back to.
+  - stage: Rollback
+    dependsOn:
+      - Candidate
+      - ${{ each w in parameters.waves }}:
+          - Canary${{ w }}
+      - Promote
+    condition: and(failed(), ne(dependencies.Promote.result, 'Succeeded'))
+    jobs:
+      - job: Rollback
+        steps:
+          - checkout: none
+          - task: AzureCLI@2
+            displayName: 100% stable, kill canary
+            inputs:
+              azureSubscription: "$(azureServiceConnection)"
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az extension add -n containerapp --upgrade -y --only-show-errors
+                A="-n $(appName) -g $(resourceGroup)"
+                az containerapp ingress traffic set $A --label-weight stable=100 canary=0 -o none || true
+                az containerapp revision label remove $A --label canary -o none || true
+                az containerapp revision deactivate $A --revision "$(newRevision)" || true
+                az containerapp ingress traffic show $A -o table

@@ -74,11 +74,22 @@ stages:
                 # Validate the Bicep template before deployment
                 - task: AzureCLI@2
                   displayName: Validate Bicep
+                  env:
+                    SQL_ADMIN_PASSWORD: $(sqlAdminPassword)
                   inputs:
                     azureSubscription: "$(azureServiceConnection)"
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: |
+                      set -euo pipefail
+
+                      # Fail fast if the secret is missing from the variable group
+                      # (an undefined variable is passed through as the unexpanded macro text)
+                      if [ -z "${SQL_ADMIN_PASSWORD:-}" ] || [[ "$SQL_ADMIN_PASSWORD" == '$('*')' ]]; then
+                        echo "##vso[task.logissue type=error]sqlAdminPassword is not set in the rick-and-morty-variables group"
+                        exit 1
+                      fi
+
                       az deployment group validate \
                         --resource-group "$(resourceGroup)" \
                         --template-file "$(bicepFile)" \
@@ -87,21 +98,44 @@ stages:
                           appName="$(appName)" \
                           containerImage="$(currentImage)" \
                           stableRevision="$(stableRevision)" \
+                          sqlAdminPassword="$SQL_ADMIN_PASSWORD" \
                         --output none
 
                 # Deploy the Bicep template to the resource group
                 - task: AzureCLI@2
+                  name: deployBicep
                   displayName: Deploy Bicep
+                  env:
+                    SQL_ADMIN_PASSWORD: $(sqlAdminPassword)
                   inputs:
                     azureSubscription: "$(azureServiceConnection)"
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: |
-                      az deployment group create \
+                      set -euo pipefail
+
+                      OUTPUTS=$(az deployment group create \
+                        --name "deploy-$(appName)-$(Build.BuildId)" \
                         --resource-group "$(resourceGroup)" \
                         --template-file "$(bicepFile)" \
                         --parameters \
                           location="$(location)" \
                           appName="$(appName)" \
                           containerImage="$(currentImage)" \
-                          stableRevision="$(stableRevision)"
+                          stableRevision="$(stableRevision)" \
+                          sqlAdminPassword="$SQL_ADMIN_PASSWORD" \
+                        --query properties.outputs \
+                        --output json)
+
+                      # Export the Bicep outputs as pipeline variables
+                      APP_FQDN=$(echo "$OUTPUTS" | jq -r '.appFqdn.value')
+                      BACKEND_HOST=$(echo "$OUTPUTS" | jq -r '.backendHostName.value')
+                      SQL_FQDN=$(echo "$OUTPUTS" | jq -r '.sqlServerFqdn.value')
+
+                      echo "Frontend: https://$APP_FQDN"
+                      echo "Backend:  https://$BACKEND_HOST"
+                      echo "SQL:      $SQL_FQDN"
+
+                      echo "##vso[task.setvariable variable=appFqdn;isOutput=true]$APP_FQDN"
+                      echo "##vso[task.setvariable variable=backendHostName;isOutput=true]$BACKEND_HOST"
+                      echo "##vso[task.setvariable variable=sqlServerFqdn;isOutput=true]$SQL_FQDN"

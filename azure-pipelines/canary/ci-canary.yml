@@ -5,6 +5,10 @@ trigger:
   branches:
     include: [feature/canary]
 
+  paths:
+    exclude:
+      - azure-pipelines/canary/infra/azdo-canary.bicep
+
 # Runs once per commit on feature/canary only; PRs do not trigger it.
 pr: none
 

@@ -4,8 +4,8 @@ param containerPort int = 80
 param appName string
 param stableRevision string = ''
 param backendAppName string = '${appName}-api'
-param backendSkuName string = 'B1'
-param backendSkuTier string = 'Basic'
+param backendSkuName string = 'F1'
+param backendSkuTier string = 'Free'
 param sqlServerName string = '${appName}-sql'
 param sqlDatabaseName string = 'FavoritesDb'
 param sqlAdminLogin string = 'sqladmin'
@@ -101,7 +101,7 @@ resource backendPlan 'Microsoft.Web/serverfarms@2025-03-01' = {
   location: location
   kind: 'linux'
   properties: {
-    reserved: true
+    reserved: false
     zoneRedundant: false
   }
   sku: {
@@ -123,7 +123,8 @@ resource backendApp 'Microsoft.Web/sites@2025-03-01' = {
     httpsOnly: true
     publicNetworkAccess: 'Enabled'
     siteConfig: {
-      linuxFxVersion: 'DOTNETCORE|10.0'
+      linuxFxVersion: ''
+      netFrameworkVersion: 'v10.0'
       alwaysOn: backendSkuTier != 'Free' && backendSkuTier != 'Shared'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'

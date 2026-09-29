@@ -97,7 +97,7 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = {
 }
 
 resource backendPlan 'Microsoft.Web/serverfarms@2025-03-01' = {
-  name: '${backendAppName}-plan'
+  name: '${backendAppName}-plan2'
   location: location
   kind: 'linux'
   properties: {

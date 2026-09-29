@@ -7,7 +7,6 @@ resources:
   pipelines:
     - pipeline: ci-canary
       source: ci-canary
-      # Manual runs default to the latest ci-canary run on this branch instead of any branch.
       branch: feature/canary
       trigger:
         branches:

@@ -99,7 +99,6 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = {
 resource backendPlan 'Microsoft.Web/serverfarms@2025-03-01' = {
   name: '${backendAppName}-plan2'
   location: location
-  kind: 'linux'
   properties: {
     reserved: false
     zoneRedundant: false
@@ -113,7 +112,6 @@ resource backendPlan 'Microsoft.Web/serverfarms@2025-03-01' = {
 resource backendApp 'Microsoft.Web/sites@2025-03-01' = {
   name: backendAppName
   location: location
-  kind: 'app,linux'
   identity: {
     type: 'SystemAssigned'
   }
@@ -125,10 +123,8 @@ resource backendApp 'Microsoft.Web/sites@2025-03-01' = {
     siteConfig: {
       linuxFxVersion: ''
       netFrameworkVersion: 'v10.0'
-      alwaysOn: backendSkuTier != 'Free' && backendSkuTier != 'Shared'
-      ftpsState: 'Disabled'
-      minTlsVersion: '1.2'
-      http20Enabled: true
+      alwaysOn: false
+      ftpsState: 'FtpsOnly'
       appSettings: [
         {
           name: 'ASPNETCORE_ENVIRONMENT'

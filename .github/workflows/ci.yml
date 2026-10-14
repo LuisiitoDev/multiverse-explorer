@@ -3,11 +3,14 @@ name: CI
 run-name: CI Rick And Morty
 
 on:
+  # PRs from feature/*, release/* and hotfix/* are validated when they target
+  # develop, main or release/**. Pushes only run on the long-lived branches to
+  # avoid duplicate runs for branches that already have an open PR.
   pull_request:
-    branches: [main]
+    branches: [develop, main, 'release/**']
 
   push:
-    branches: [main]
+    branches: [develop, main]
 
   workflow_dispatch: 
 

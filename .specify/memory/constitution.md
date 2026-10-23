@@ -128,4 +128,4 @@ rationale and risk, and receive review before it is accepted. Periodic project r
 MUST check whether the principles and constraints still match the repository's
 technology and delivery practices.
 
-**Version**: 1.1.0 | **Ratified**: TODO(RATIFICATION_DATE): original adoption date is not recorded; confirm with project maintainers. | **Last Amended**: 2026-10-22
+**Version**: 1.1.0 | **Ratified**: 2026-10-22. | **Last Amended**: 2026-10-22

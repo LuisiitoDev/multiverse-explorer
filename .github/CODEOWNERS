@@ -1,0 +1,25 @@
+
+# Multiverse Explorer — Code Ownership
+
+# Default repository owner
+* @LuisiitoDev
+
+# Agent definitions and instructions
+/.github/agents/ @LuisiitoDev
+
+# Spec-Driven Development
+/.specify/ @LuisiitoDev
+/specs/ @LuisiitoDev
+
+# Frontend — React, TypeScript, Vite
+/frontend/ @LuisiitoDev
+
+# Backend — .NET
+/backend/ @LuisiitoDev
+
+# Infrastructure and deployments
+/infra/ @LuisiitoDev
+
+# GitHub Actions and repository governance
+/.github/workflows/ @LuisiitoDev
+/.github/CODEOWNERS @LuisiitoDev

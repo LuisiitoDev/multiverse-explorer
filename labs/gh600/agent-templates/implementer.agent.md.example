@@ -1,0 +1,21 @@
+# Plantilla de aprendizaje: implementer
+
+No es un agente habilitado. Redacta el perfil antes de copiarlo a `.github/agents/`.
+Completa YAML con description y una selección justificada de tools compatibles con tu runtime. No uses un wildcard sin evaluar sus capacidades.
+
+## Rol y objetivo
+TODO: responsabilidad y lo que queda fuera.
+## Contexto y fuentes
+TODO: constitución, especificación, plan y evidencia de autorización si aplica.
+## Entradas y ambigüedades
+TODO
+## Reglas y límites
+TODO: no fusionar ni desplegar; no ampliar alcance ni permisos.
+## Proceso de trabajo
+TODO: pasos observables y validaciones.
+## Aprobación y entrega
+TODO: qué decisión necesitas, cómo comprobarla y cuándo caduca.
+## Formato de salida
+TODO: evidencia, rutas, resultados, fallos y siguiente acción.
+## Bloqueos y fallos
+TODO: qué reportar y cuándo detenerse.

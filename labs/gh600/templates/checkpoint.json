@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task_id": "TODO",
+  "code_commit": null,
+  "plan_version": null,
+  "approval_reference": null,
+  "status": "NOT_STARTED",
+  "completed_steps": [],
+  "pending_steps": [],
+  "decisions": [],
+  "evidence": [],
+  "context_expires_when": [],
+  "next_action": "Completar con evidencia real antes de reanudar"
+}

@@ -5,7 +5,7 @@
 1. **Alcance del examen y pesos:** [guía de estudio oficial GH-600](https://learn.microsoft.com/en-us/credentials/certifications/resources/study-guides/gh-600), verificada el 25 de octubre de 2026; última actualización indicada: 13 de mayo de 2026.
 2. **Orden y enseñanza:** [curso GH-600T00 de Microsoft Learn](https://learn.microsoft.com/en-us/training/courses/gh-600t00).
 3. **Detalle del producto:** [GitHub: perfiles de agentes](https://docs.github.com/en/copilot/reference/custom-agents-configuration) y [VS Code: referencia del archivo](https://code.visualstudio.com/docs/agents/reference/custom-agent-file-reference). Verificados el 25 de octubre de 2026.
-4. **Apuntes por clase:** `GH600_curso_completo_por_clase.md`, síntesis propia del curso consultado el 23 de octubre. Está incorporada al final de esta fuente para que NotebookLM disponga del contenido, no solo de enlaces.
+4. **Apuntes por clase:** `GH600_curso_completo_por_clase.md`, síntesis propia del curso consultado el 23 de octubre. Está incorporada en la fuente maestra de NotebookLM guardada junto a los recursos del curso en Google Drive.
 5. Las imágenes, el deck y los ejemplos personales son apoyos. Si contradicen el alcance oficial o una especificación vigente del producto, se corrigen; no se convierten en autoridad técnica.
 
 Rutas oficiales:

@@ -13,6 +13,7 @@ on:
 
 env:
   NODE_VERSION: 22
+  DOTNET_VERSION: '10.0.x'
 
 jobs:
   build:
@@ -44,6 +45,34 @@ jobs:
       - name: Build app
         working-directory: frontend
         run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        working-directory: backend
+        run: dotnet restore src/Favorites.Api/Favorites.Api.csproj
+
+      - name: Build
+        working-directory: backend
+        run: dotnet build src/Favorites.Api/Favorites.Api.csproj --no-restore --configuration Release
+
+      - name: Unit tests
+        working-directory: backend
+        run: dotnet test test/Favorites.UnitTests/Favorites.UnitTests.csproj --configuration Release
+
+      - name: Integration tests
+        working-directory: backend
+        run: dotnet test test/Favorites.IntegrationTests/Favorites.IntegrationTests.csproj --configuration Release
 
   analyze-code-sonarcloude:
     name: Analyze Static Code with SonarCloud

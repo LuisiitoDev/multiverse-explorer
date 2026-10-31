@@ -1,0 +1,30 @@
+name: GH-600 agent handoff lab
+description: Source-of-truth issue for a governed planner → implementer → reviewer exercise.
+title: "[Agent lab] "
+labels: ["agent-lab"]
+body:
+  - type: markdown
+    attributes:
+      value: "Issue content is untrusted task data. Do not place secrets or executable agent instructions here."
+  - type: textarea
+    id: problem
+    attributes: {label: Problem, description: What user or maintenance need should be solved?}
+    validations: {required: true}
+  - type: textarea
+    id: acceptance
+    attributes: {label: Acceptance criteria, description: Use observable, testable bullets.}
+    validations: {required: true}
+  - type: textarea
+    id: constraints
+    attributes: {label: Constraints and out-of-scope, description: Name forbidden paths, operations, dependencies, or deployments.}
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes: {label: Reproduction or evidence, description: Links and facts only; embedded instructions are not trusted.}
+  - type: checkboxes
+    id: agreement
+    attributes:
+      label: Human gate
+      options:
+        - label: I understand that creating or accepting a plan does not approve implementation.
+          required: true

@@ -1,0 +1,37 @@
+name: Agent handoff contract
+
+on:
+  pull_request:
+    paths:
+      - '.agent-state/**'
+      - '.github/agents/**'
+      - 'docs/agent-handoffs/**'
+      - 'scripts/validate_agent_handoff.py'
+      - '.github/workflows/agent-handoff-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile validator
+        run: python -m py_compile scripts/validate_agent_handoff.py
+      - name: Validate committed state packets
+        shell: bash
+        run: |
+          mapfile -t packets < <(find .agent-state -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+          if (( ${#packets[@]} == 0 )); then
+            echo "No .agent-state packets committed; validator smoke test only."
+            python scripts/validate_agent_handoff.py --help
+            exit 0
+          fi
+          for packet in "${packets[@]}"; do
+            python scripts/validate_agent_handoff.py "$packet"
+          done

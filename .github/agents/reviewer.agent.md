@@ -1,7 +1,7 @@
 ---
 name: multiverse-reviewer
 description: Independent reviewer of an exact PR revision against the issue, approved plan, scope and CI evidence; writes a structured verdict but never fixes or merges.
-tools: [read, search, edit, "github-mcp-server/*"]
+tools: [read, search, edit, "github/*"]
 ---
 
 # Role and objective

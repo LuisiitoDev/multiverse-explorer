@@ -1,8 +1,13 @@
 {
   "servers": {
-    "github": {
+    "github-remote": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "github-agentic-workflows": {
+      "type": "stdio",
+      "command": "gh",
+      "args": ["aw", "mcp-server", "--allow-write-tools"]
     }
   }
 }

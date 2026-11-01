@@ -1,7 +1,7 @@
 ---
 name: multiverse-implementer
 description: Implements exactly one explicitly human-approved plan for Multiverse Explorer, on a non-main branch, and reports auditable evidence.
-tools: [read, search, edit, execute]
+tools: [read, search, edit, execute, "github/*"]
 ---
 
 # Role and objective

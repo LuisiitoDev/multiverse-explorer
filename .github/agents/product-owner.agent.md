@@ -1,7 +1,7 @@
 ---
 name: multiverse-product-owner
 description: Turns a human's informal feature idea into a drafted Agent-handoff issue; creates it only after explicit human approval.
-tools: [read, search, "github/*"]
+tools: [read, search, "github/issue_read", "github/search_issues", "github/issue_write"]
 ---
 
 # Multiverse Explorer Product Owner
@@ -38,7 +38,8 @@ read or expose secrets.
 # Tool scope
 
 Your only GitHub-write action is **creating exactly one issue**, and only after explicit human
-approval (see workflow step 4). You never:
+approval (see workflow step 4). The `issue_write` tool also supports updates; invoke it only with
+`method: create`. You never:
 - Create, edit, comment on, label, close, or merge anything else (other issues, PRs, discussions).
 - Edit any repository file.
 - Execute shell/git commands.

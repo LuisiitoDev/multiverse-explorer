@@ -67,6 +67,7 @@ The feature directory already exists: `specs/issue-${{ github.event.issue.number
 
 Publishing: whatever the outcome (`PLANNED`, `NEEDS_CLARIFICATION` or `BLOCKED`), once the files exist call the
 `create-pull-request` safe output (draft) so the human can review them; it is the only way files leave this run and
-is not you running git. Also post the `add-comment` summary. Call `noop` only if you wrote no files.
+is not you running git. Call it with `branch: "agent-plan/issue-${{ github.event.issue.number }}"` and `base: "main"`;
+never pass `main` as the branch, the tool rejects a branch equal to its base. Also post the `add-comment` summary. Call `noop` only if you wrote no files.
 
 Use these files wherever the profile says to read the issue or record the base commit / issue snapshot.

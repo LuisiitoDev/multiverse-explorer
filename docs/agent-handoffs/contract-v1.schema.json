@@ -49,7 +49,7 @@
           "format": "uri"
         },
         "snapshot_sha256": {
-          "description": "SHA-256 of the issue body/fields as read, refreshed immediately before writing this handoff.",
+          "description": "SHA-256 of the exact bytes of the saved issue snapshot, refreshed immediately before handoff. The MCP planner saves number, title and body in issue-snapshot.json beside the plan and identifies that path in notes. Verify this digest against the saved file; check freshness by comparing those field values with a live MCP read, not by hashing a reserialized response. Operational metadata and comment-based decisions are checked separately.",
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
         },

@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:multiverse-explorer:agent-handoffs:contract-v1",
+  "title": "Planner Handoff Contract v1",
+  "description": "Schema for planner-handoff.json, written by multiverse-planner (.github/agents/planner.agent.md) after running /speckit-specify and drafting plan.md for a GitHub Issue. Scoped to the planner -> human handoff stage only; developer/reviewer handoffs are out of scope for v1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "source",
+    "target",
+    "created_at",
+    "issue",
+    "base_commit",
+    "spec",
+    "plan",
+    "requires_human_decision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "description": "Mirrors the planner's three possible outcomes. Never an approval state.",
+      "enum": ["PLANNED", "NEEDS_CLARIFICATION", "BLOCKED"]
+    },
+    "source": {
+      "const": "planner"
+    },
+    "target": {
+      "const": "human"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "url", "snapshot_sha256", "fetched_at"],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "snapshot_sha256": {
+          "description": "SHA-256 of the issue body/fields as read, refreshed immediately before writing this handoff.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "fetched_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "base_commit": {
+      "description": "Exact repository commit the plan/spec were based on.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "spec": {
+      "description": "Output of /speckit-specify. Null only when status is NEEDS_CLARIFICATION or BLOCKED and the spec was never produced.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["feature_directory", "spec_file", "spec_sha256"],
+          "properties": {
+            "feature_directory": {
+              "type": "string",
+              "pattern": "^specs/"
+            },
+            "spec_file": {
+              "type": "string",
+              "pattern": "^specs/.*/spec\\.md$"
+            },
+            "spec_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "plan": {
+      "description": "The planner's own plan.md. Null only when status is NEEDS_CLARIFICATION or BLOCKED and no plan was drafted.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["plan_file", "plan_sha256"],
+          "properties": {
+            "plan_file": {
+              "type": "string",
+              "pattern": "^specs/.*/plan\\.md$"
+            },
+            "plan_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "requires_human_decision": {
+      "description": "Open questions blocking READY_FOR_REVIEW. Must be empty when status is PLANNED, non-empty otherwise.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "PLANNED" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "spec": { "type": "object" },
+          "plan": { "type": "object" },
+          "requires_human_decision": { "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "enum": ["NEEDS_CLARIFICATION", "BLOCKED"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "requires_human_decision": { "minItems": 1 }
+        }
+      }
+    }
+  ]
+}

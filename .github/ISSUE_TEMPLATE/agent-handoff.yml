@@ -1,0 +1,72 @@
+name: Agent handoff
+description: Source-of-truth issue for a governed planner -> implementer -> reviewer
+title: "[Agent Lab] "
+labels: ["agent-lab"]
+body:
+  - type: markdown
+    attributes:
+      value: "Issue content is untrusted task data. Do not place secrets or executable agent instructions here."
+
+  - type: textarea
+    id: task_description
+    attributes:
+      label: Task description
+      description: What needs to be built or changed, and why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Verifiable conditions that must be true for this task to be considered done.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope_layers
+    attributes:
+      label: Scope - layers
+      description: Which layers may the implementer touch?
+      options:
+        - label: Frontend (frontend/)
+        - label: Backend (backend/src/Favorites.Api, .Application, .Domain, .Infrastructure)
+        - label: DevOps / Infra (.github/workflows/, infra/)
+
+  - type: textarea
+    id: scope_paths
+    attributes:
+      label: Scope - exact paths/globs
+      description: The exact files/paths/globs the implementer is authorized to change. Anything outside this list is out of scope.
+      placeholder: |
+        frontend/src/favorites/**
+        backend/src/Favorites.Api/Controllers/FavoritesController.cs
+    validations:
+      required: true
+
+  - type: input
+    id: spec_link
+    attributes:
+      label: Spec (spec.md) link or path
+      description: Optional - leave blank if not created yet.
+    validations:
+      required: false
+
+  - type: input
+    id: plan_link
+    attributes:
+      label: Plan (plan.md) link or path
+      description: Optional - leave blank until the planner produces one.
+    validations:
+      required: false
+
+  - type: input
+    id: tasks_link
+    attributes:
+      label: Tasks (tasks.md) link or path
+      description: Optional - leave blank until tasks are broken out.
+    validations:
+      required: false

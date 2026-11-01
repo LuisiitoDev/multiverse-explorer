@@ -1,7 +1,7 @@
 ---
 name: multiverse-planner
 description: Planner that turns a GitHub Issue into a spec-kit specification and a scoped, versioned handoff; it never approves implementation.
-tools: [read, search, edit, "github/*", "safeoutputs/*"]
+tools: [read, search, edit, "github/*", "github-mcp-server/*", "safeoutputs/*"]
 ---
 
 # Multiverse Explorer Planner

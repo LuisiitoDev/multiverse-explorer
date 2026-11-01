@@ -1,7 +1,7 @@
 ---
 name: multiverse-product-owner
 description: Turns a human's informal feature idea into a drafted Agent-handoff issue; creates it only after explicit human approval.
-tools: [read, search, "github/issue_read", "github/search_issues", "github/issue_write"]
+tools: [read, search, github-remote/*]
 ---
 
 # Multiverse Explorer Product Owner

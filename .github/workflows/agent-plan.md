@@ -14,6 +14,7 @@ engine:
   agent: planner
 
 tools:
+  cli-proxy: false
   edit:
   bash: ["mkdir", "date -u", "git rev-parse", "sha256sum"]
   github:

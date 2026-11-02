@@ -78,6 +78,7 @@ tools:
   - sha256sum
   - mkdir
   - npm ci
+  - npm install
   - npm run
   - npm test
   - dotnet restore
@@ -133,6 +134,12 @@ through native GitHub MCP, constitution, spec.md, plan.md and planner-handoff.js
 Use the approved execution_scope; metadata writes are limited to this issue's
 tasks.md and implementation-handoff.json. Do not edit approved planning files.
 If context.attempt is 1, fix only context.remediation findings within that scope.
+
+Add only the npm dependencies that plan.md explicitly names, with `npm install`
+(pin the version the plan states) inside the approved package directory, and
+commit the resulting package.json and package-lock.json. Never install anything
+else, globally, or with lifecycle scripts beyond npm's defaults; list every added
+package in the handoff's deviations if the plan did not name an exact version.
 
 Implement and run the planned checks with the available runner tooling. Record
 local evidence honestly. CI runs in the pipeline **after** publication;

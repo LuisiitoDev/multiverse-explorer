@@ -1,8 +1,7 @@
 ---
 name: Planner stage
-run-name: 'planner issue #${{ inputs.issue_number }} / ${{ inputs.transition_id }}'
 'on':
-  workflow_dispatch:
+  workflow_call:
     inputs:
       issue_number:
         description: Originating issue number
@@ -17,9 +16,28 @@ run-name: 'planner issue #${{ inputs.issue_number }} / ${{ inputs.transition_id 
         required: true
         type: string
       transition_id:
-        description: Durable coordinator dispatch identity
+        description: Pipeline-generated identity of this worker invocation
         required: true
         type: string
+      attempt:
+        description: Pipeline iteration (1, or 2 for the single bounded remediation)
+        required: false
+        type: string
+        default: '1'
+      approval_json:
+        description: Hash-bound human approval record built by the pipeline approve job
+        required: false
+        type: string
+        default: ''
+      remediation_json:
+        description: Reviewer findings for the bounded remediation attempt
+        required: false
+        type: string
+        default: '[]'
+imports:
+- shared/agent-prepare.md
+env:
+  AGENT_WORKER: planner
 permissions:
   contents: read
   issues: read
@@ -62,29 +80,6 @@ skills:
 network:
   allowed:
   - defaults
-concurrency:
-  group: agent-planner-${{ inputs.issue_number }}
-  cancel-in-progress: false
-steps:
-- name: Install trusted handoff validator dependencies
-  run: python3 -m pip install --disable-pip-version-check --target "$RUNNER_TEMP/agent-deps" -r scripts/requirements-agent-orchestration.txt
-- name: Validate coordinator intent and check out pinned PR head
-  env:
-    GH_TOKEN: ${{ github.token }}
-    PYTHONPATH: ${{ runner.temp }}/agent-deps
-    AGENT_WORKER: planner
-    ISSUE_NUMBER: ${{ inputs.issue_number }}
-    PR_NUMBER: ${{ inputs.pr_number }}
-    EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
-    TRANSITION_ID: ${{ inputs.transition_id }}
-  run: python3 scripts/prepare_agent_run.py
-- name: Preserve validated dispatch metadata
-  uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-  with:
-    name: agent-context
-    path: /tmp/gh-aw/agent-context.json
-    if-no-files-found: error
-    retention-days: 30
 safe-outputs:
   push-to-pull-request-branch:
     target: ${{ inputs.pr_number }}
@@ -109,7 +104,7 @@ safe-outputs:
 
 Follow `.github/agents/planner.agent.md`. Read `/tmp/gh-aw/agent-context.json`
 for the validated issue, canonical PR, branch, expected head, transition ID and
-planning baseline. The controller has already checked out that PR head.
+planning baseline. The trusted pipeline step has already checked out that PR head.
 
 Read the issue and **all** comments via native GitHub MCP `issue_read` (`get`
 and `get_comments`, paginated). Do not substitute event bodies, prefetch, `gh`,

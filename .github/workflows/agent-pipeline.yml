@@ -1,0 +1,446 @@
+name: Agent pipeline
+run-name: 'Agent pipeline · issue #${{ github.event.issue.number || inputs.issue_number }}'
+
+# Sequential multi-agent orchestration expressed as one GitHub Actions run:
+#
+#   route ─► plan ─► plan-gate ─► approve (environment) ─► iteration-1 ─► iteration-2? ─► finalize
+#                                                          (implement ► ci ► review)   (bounded: 1 retry)
+#
+# Workers are gh-aw reusable workflows (workflow_call). Handoffs are job outputs
+# plus schema-validated files/artifacts. The run itself is the orchestration
+# state; issue labels `agent:*` mirror the current phase for humans.
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Originating issue number (starts a new planning revision)
+        required: true
+        type: string
+
+permissions: {}
+
+# One active pipeline per issue. Events that cannot start work (approval
+# commands, unrelated comments/labels) get a unique group so they never queue
+# behind, or replace, a pipeline that is waiting for human approval.
+concurrency:
+  group: >-
+    agent-issue-${{ github.event.issue.number || inputs.issue_number }}-${{
+    (github.event_name == 'workflow_dispatch' ||
+     (github.event_name == 'issues' && github.event.label.name == 'agent-lab') ||
+     (github.event_name == 'issue_comment' &&
+      (startsWith(github.event.comment.body, '/agent plan') ||
+       (contains(github.event.issue.labels.*.name, 'agent:needs-clarification') &&
+        !startsWith(github.event.comment.body, '/agent ')))))
+    && 'serial' || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  # ── 1. Entry point: authorize the human, resolve/create the canonical PR ──
+  route:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && github.event.label.name == 'agent-lab' && !github.event.issue.pull_request) ||
+      (github.event_name == 'issue_comment' && !github.event.issue.pull_request &&
+       github.event.comment.user.type == 'User' &&
+       (startsWith(github.event.comment.body, '/agent plan') ||
+        (contains(github.event.issue.labels.*.name, 'agent:needs-clarification') &&
+         !startsWith(github.event.comment.body, '/agent '))))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      run: ${{ steps.route.outputs.run }}
+      issue_number: ${{ steps.route.outputs.issue_number }}
+      pr_number: ${{ steps.route.outputs.pr_number }}
+      head_sha: ${{ steps.route.outputs.head_sha }}
+      transition_id: ${{ steps.route.outputs.transition_id }}
+      comments_sha256: ${{ steps.route.outputs.comments_sha256 }}
+      blocker: ${{ steps.route.outputs.blocker }}
+    steps:
+      - name: Route event to the canonical PR
+        id: route
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const crypto = require('crypto');
+            const { owner, repo } = context.repo;
+            const payload = context.payload;
+            const fail = (message) => { throw new Error(message); };
+            const CONTROL = /^\/agent (?:plan|approve [0-9a-f]{40} [0-9a-f]{64})$/;
+            try {
+              const issueNumber = context.eventName === 'workflow_dispatch' ? payload.inputs.issue_number : String(payload.issue.number);
+              if (!/^[1-9][0-9]*$/.test(issueNumber)) fail('Invalid issue number');
+              const issue = Number(issueNumber);
+              core.setOutput('issue_number', issueNumber);
+
+              // Only a human repository writer can start or resume agent work.
+              const actor = context.eventName === 'issue_comment' ? payload.comment.user : payload.sender;
+              const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: actor.login });
+              if (actor.type !== 'User' || !(['admin', 'maintain', 'write'].includes(permission.role_name) ||
+                  ['admin', 'write'].includes(permission.permission))) {
+                core.notice(`Ignored: @${actor.login} lacks repository write permission`);
+                core.setOutput('run', 'false');
+                return;
+              }
+              if (context.eventName === 'issue_comment') {
+                const body = payload.comment.body.trim();
+                const clarification = payload.issue.labels.some((label) => label.name === 'agent:needs-clarification');
+                if (body !== '/agent plan' && !(clarification && !body.startsWith('/agent '))) {
+                  core.setOutput('run', 'false');
+                  return;
+                }
+              }
+
+              const { data: source } = await github.rest.issues.get({ owner, repo, issue_number: issue });
+              if (source.state !== 'open' || source.pull_request) fail('Originating issue must be an open issue');
+
+              const { data: mainRef } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+              const main = mainRef.object.sha;
+              const branchPattern = new RegExp(`^agent-plan/issue-${issue}(?:-[A-Za-z0-9_-]+)?$`);
+              const open = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', base: 'main', per_page: 100 });
+              const candidates = open.filter((p) => branchPattern.test(p.head.ref) && p.head.repo &&
+                p.head.repo.full_name.toLowerCase() === `${owner}/${repo}`.toLowerCase() &&
+                p.title.startsWith('[Agent Lab] ') && p.labels.some((label) => label.name === 'agent-plan'));
+              if (candidates.length > 1)
+                fail(`Multiple canonical PRs (${candidates.map((p) => '#' + p.number).join(', ')}); close all but one, then comment \`/agent plan\``);
+
+              let prNumber;
+              if (candidates.length === 1) {
+                prNumber = candidates[0].number;
+              } else {
+                // Bootstrap is fail-closed: never delete or recreate an existing branch.
+                const branch = `agent-plan/issue-${issue}`;
+                const existing = await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }).catch((error) => {
+                  if (error.status === 404) return null;
+                  throw error;
+                });
+                if (existing) fail(`Branch ${branch} exists without an open canonical PR; reopen or inspect it before retrying`);
+                await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: main });
+                // A PR needs a non-empty diff; this data-only seed identifies the task.
+                await github.rest.repos.createOrUpdateFileContents({ owner, repo, branch,
+                  path: `specs/issue-${issue}/task.json`, message: `Initialize agent task for issue #${issue}`,
+                  content: Buffer.from(JSON.stringify({ issue_number: issue })).toString('base64') });
+                const { data: created } = await github.rest.pulls.create({ owner, repo, head: branch, base: 'main', draft: true,
+                  title: `[Agent Lab] Issue #${issue}`,
+                  body: `Related issue: #${issue}\n\nCanonical agent work PR. Planning pending; no implementation approval.` });
+                await github.rest.issues.addLabels({ owner, repo, issue_number: created.number, labels: ['agent-plan'] });
+                prNumber = created.number;
+              }
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              const { data: ancestry } = await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${main}...${pr.head.sha}` });
+              if (!['ahead', 'identical'].includes(ancestry.status))
+                fail(`PR #${prNumber} does not include current main; update its branch, then comment \`/agent plan\``);
+
+              // Human-decision digest: bot messages and control commands excluded.
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue, per_page: 100 });
+              const human = comments.filter((c) => c.user.type === 'User' && !CONTROL.test(c.body.trim()))
+                .map((c) => ({ id: c.id, updated_at: c.updated_at, body: c.body }));
+              core.setOutput('comments_sha256', crypto.createHash('sha256').update(JSON.stringify(human)).digest('hex'));
+
+              const labels = (await github.paginate(github.rest.issues.listLabelsOnIssue, { owner, repo, issue_number: issue, per_page: 100 }))
+                .map((label) => label.name).filter((name) => name.startsWith('agent:'));
+              for (const name of labels) await github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name });
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['agent:planning'] });
+
+              core.setOutput('pr_number', String(prNumber));
+              core.setOutput('head_sha', pr.head.sha);
+              core.setOutput('transition_id', crypto.createHash('md5')
+                .update(`${context.runId}:${process.env.GITHUB_RUN_ATTEMPT}:planner:1`).digest('hex'));
+              core.setOutput('run', 'true');
+            } catch (error) {
+              core.setOutput('run', 'false');
+              core.setOutput('blocker', String(error.message).slice(0, 1000));
+              core.setFailed(error.message);
+            }
+
+  # ── 2. Planner agent (gh-aw reusable workflow) ──
+  plan:
+    needs: route
+    if: needs.route.outputs.run == 'true'
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-plan.lock.yml
+    with:
+      issue_number: ${{ needs.route.outputs.issue_number }}
+      pr_number: ${{ needs.route.outputs.pr_number }}
+      expected_head_sha: ${{ needs.route.outputs.head_sha }}
+      transition_id: ${{ needs.route.outputs.transition_id }}
+    secrets: inherit
+
+  # ── 3. Validate the planner handoff (schema + byte hashes + freshness) ──
+  plan-gate:
+    needs: [route, plan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      status: ${{ steps.gate.outputs.status }}
+      head_sha: ${{ steps.gate.outputs.head_sha }}
+      spec_sha256: ${{ steps.gate.outputs.spec_sha256 }}
+      plan_sha256: ${{ steps.gate.outputs.plan_sha256 }}
+      base_commit: ${{ steps.gate.outputs.base_commit }}
+      blocker: ${{ steps.gate.outputs.blocker }}
+    steps:
+      - name: Check out trusted schemas
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: docs/agent-handoffs
+          persist-credentials: false
+      - name: Install JSON Schema validator
+        run: npm install --no-save --no-audit --no-fund --ignore-scripts --prefix "$RUNNER_TEMP/agent-deps" ajv@8.17.1 ajv-formats@3.0.1
+      - name: Validate planner handoff
+        id: gate
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          PR_NUMBER: ${{ needs.route.outputs.pr_number }}
+          START_HEAD_SHA: ${{ needs.route.outputs.head_sha }}
+          COMMENTS_SHA256: ${{ needs.route.outputs.comments_sha256 }}
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const deps = `${process.env.RUNNER_TEMP}/agent-deps/node_modules`;
+            const Ajv = require(`${deps}/ajv/dist/2020`); const formats = require(`${deps}/ajv-formats`);
+            const { owner, repo } = context.repo;
+            const env = process.env;
+            const issue = Number(env.ISSUE_NUMBER);
+            const fail = (message) => { throw new Error(message); };
+            const sha256 = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
+            const CONTROL = /^\/agent (?:plan|approve [0-9a-f]{40} [0-9a-f]{64})$/;
+            const validate = (doc, name) => {
+              const ajv = new (Ajv.default || Ajv)({ allErrors: true, strict: false });
+              (formats.default || formats)(ajv);
+              const check = ajv.compile(JSON.parse(fs.readFileSync(`docs/agent-handoffs/${name}`, 'utf8')));
+              if (!check(doc)) fail(`Invalid ${name}: ${ajv.errorsText(check.errors)}`);
+            };
+            const file = async (path, ref) => {
+              const { data } = await github.rest.repos.getContent({ owner, repo, path, ref });
+              if (Array.isArray(data) || data.type !== 'file') fail(`${path} is not a regular file`);
+              return Buffer.from(data.content, 'base64');
+            };
+            const descends = async (base, head) => ['ahead', 'identical'].includes(
+              (await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${base}...${head}` })).data.status);
+            try {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: Number(env.PR_NUMBER) });
+              const head = pr.head.sha;
+              if (pr.state !== 'open') fail('Canonical PR was closed during planning');
+              if (!(await descends(env.START_HEAD_SHA, head))) fail('Planner rewrote PR history');
+              const dir = `specs/issue-${issue}`;
+              const handoff = JSON.parse((await file(`${dir}/planner-handoff.json`, head)).toString('utf8'));
+              validate(handoff, 'contract-v1.schema.json');
+              if (handoff.issue.number !== issue) fail('Planner handoff belongs to another issue');
+
+              const { data: current } = await github.rest.issues.get({ owner, repo, issue_number: issue });
+              const snapshotBytes = await file(`${dir}/issue-snapshot.json`, head);
+              if (sha256(snapshotBytes) !== handoff.issue.snapshot_sha256) fail('Issue snapshot hash mismatch');
+              const snapshot = JSON.parse(snapshotBytes.toString('utf8'));
+              if (Object.keys(snapshot).length !== 3 || snapshot.number !== current.number ||
+                  snapshot.title !== current.title || snapshot.body !== current.body) fail('Issue snapshot is stale');
+              for (const [kind, pathKey, hashKey] of [['spec', 'spec_file', 'spec_sha256'], ['plan', 'plan_file', 'plan_sha256']]) {
+                const artifact = handoff[kind];
+                if (!artifact) continue;
+                if (artifact[pathKey] !== `${dir}/${kind}.md`) fail(`Unexpected ${kind} path`);
+                if (sha256(await file(artifact[pathKey], head)) !== artifact[hashKey]) fail(`${kind}.md hash mismatch`);
+              }
+
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue, per_page: 100 });
+              const human = comments.filter((c) => c.user.type === 'User' && !CONTROL.test(c.body.trim()))
+                .map((c) => ({ id: c.id, updated_at: c.updated_at, body: c.body }));
+              if (sha256(JSON.stringify(human)) !== env.COMMENTS_SHA256) fail('Human answers changed during planning; comment `/agent plan` to reconcile');
+
+              const status = handoff.status;
+              if (status === 'PLANNED') {
+                if (!handoff.execution_scope) fail('Replan to produce machine-readable execution_scope');
+                const { data: mainRef } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+                if (handoff.base_commit !== mainRef.object.sha) fail('Planning baseline differs from current main; replan');
+                if (!(await descends(handoff.base_commit, head))) fail('Current main is not in the PR history; update the branch');
+                core.setOutput('spec_sha256', handoff.spec.spec_sha256);
+                core.setOutput('plan_sha256', handoff.plan.plan_sha256);
+                core.setOutput('base_commit', handoff.base_commit);
+                const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+                const labels = (await github.paginate(github.rest.issues.listLabelsOnIssue, { owner, repo, issue_number: issue, per_page: 100 }))
+                  .map((label) => label.name).filter((name) => name.startsWith('agent:'));
+                for (const name of labels) await github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name });
+                await github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['agent:awaiting-approval'] });
+                await github.rest.issues.createComment({ owner, repo, issue_number: issue, body:
+                  `<!-- agent-pipeline -->\nPlanner: **PLANNED** on PR #${pr.number}. To authorize this exact revision:\n\n` +
+                  `1. Review the spec/plan, then post this comment on this issue:\n\n   \`/agent approve ${head} ${handoff.plan.plan_sha256}\`\n\n` +
+                  `2. Approve the pending \`implementation-approval\` deployment in [this run](${runUrl}).` });
+              }
+              core.setOutput('status', status);
+              core.setOutput('head_sha', head);
+            } catch (error) {
+              core.setOutput('blocker', String(error.message).slice(0, 1000));
+              core.setFailed(error.message);
+            }
+
+  # ── 4. Human-in-the-loop gate: environment approval + hash-bound comment ──
+  approve:
+    needs: [route, plan-gate]
+    if: needs.plan-gate.outputs.status == 'PLANNED'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: implementation-approval
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      approval_json: ${{ steps.approval.outputs.approval_json }}
+      blocker: ${{ steps.approval.outputs.blocker }}
+    steps:
+      - name: Verify hash-bound approval comment
+        id: approval
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          PR_NUMBER: ${{ needs.route.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.plan-gate.outputs.head_sha }}
+          SPEC_SHA256: ${{ needs.plan-gate.outputs.spec_sha256 }}
+          PLAN_SHA256: ${{ needs.plan-gate.outputs.plan_sha256 }}
+          BASE_COMMIT: ${{ needs.plan-gate.outputs.base_commit }}
+          COMMENTS_SHA256: ${{ needs.route.outputs.comments_sha256 }}
+        with:
+          script: |
+            const crypto = require('crypto');
+            const { owner, repo } = context.repo;
+            const env = process.env;
+            const issue = Number(env.ISSUE_NUMBER);
+            const fail = (message) => { throw new Error(message); };
+            const sha256 = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
+            const CONTROL = /^\/agent (?:plan|approve [0-9a-f]{40} [0-9a-f]{64})$/;
+            const file = async (path, ref) => Buffer.from((await github.rest.repos.getContent({ owner, repo, path, ref })).data.content, 'base64');
+            try {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: Number(env.PR_NUMBER) });
+              if (pr.state !== 'open' || pr.head.sha !== env.HEAD_SHA) fail('PR changed after planning; comment `/agent plan` to replan');
+              const { data: mainRef } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+              if (mainRef.object.sha !== env.BASE_COMMIT) fail('main advanced after planning; update the PR branch and replan');
+              if (sha256(await file(`specs/issue-${issue}/spec.md`, env.HEAD_SHA)) !== env.SPEC_SHA256 ||
+                  sha256(await file(`specs/issue-${issue}/plan.md`, env.HEAD_SHA)) !== env.PLAN_SHA256) fail('Approved documents changed');
+
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue, per_page: 100 });
+              const human = comments.filter((c) => c.user.type === 'User' && !CONTROL.test(c.body.trim()))
+                .map((c) => ({ id: c.id, updated_at: c.updated_at, body: c.body }));
+              if (sha256(JSON.stringify(human)) !== env.COMMENTS_SHA256) fail('Human decisions changed after planning; replan');
+
+              // The environment gate is necessary but not sufficient: a repository
+              // writer must also bind the approval to the exact head and plan hash.
+              const expected = `/agent approve ${env.HEAD_SHA} ${env.PLAN_SHA256}`;
+              let approval = null;
+              for (const comment of comments.filter((c) => c.body.trim() === expected).reverse()) {
+                if (comment.user.type !== 'User') continue;
+                const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: comment.user.login });
+                if (!(['admin', 'maintain', 'write'].includes(permission.role_name) || ['admin', 'write'].includes(permission.permission))) continue;
+                approval = { schema_version: '1.0.0', issue_number: issue, pr_number: pr.number, actor: comment.user.login,
+                  comment_id: comment.id, statement: comment.body, approved_head_sha: env.HEAD_SHA,
+                  spec_sha256: env.SPEC_SHA256, plan_sha256: env.PLAN_SHA256, base_commit: env.BASE_COMMIT, approved_at: comment.created_at };
+                break;
+              }
+              if (!approval) fail(`No repository writer posted \`${expected}\` before the environment was approved`);
+              core.setOutput('approval_json', JSON.stringify(approval));
+            } catch (error) {
+              core.setOutput('blocker', String(error.message).slice(0, 1000));
+              core.setFailed(error.message);
+            }
+
+  # ── 5. Implement ► CI ► Review, with ONE bounded remediation iteration ──
+  iteration-1:
+    needs: [route, plan-gate, approve]
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-iteration.yml
+    with:
+      issue_number: ${{ needs.route.outputs.issue_number }}
+      pr_number: ${{ needs.route.outputs.pr_number }}
+      head_sha: ${{ needs.plan-gate.outputs.head_sha }}
+      attempt: '1'
+      approval_json: ${{ needs.approve.outputs.approval_json }}
+      remediation_json: '[]'
+    secrets: inherit
+
+  iteration-2:
+    needs: [route, approve, iteration-1]
+    if: needs.iteration-1.outputs.decision == 'REQUEST_CHANGES'
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-iteration.yml
+    with:
+      issue_number: ${{ needs.route.outputs.issue_number }}
+      pr_number: ${{ needs.route.outputs.pr_number }}
+      head_sha: ${{ needs.iteration-1.outputs.head_sha }}
+      attempt: '2'
+      approval_json: ${{ needs.approve.outputs.approval_json }}
+      remediation_json: ${{ needs.iteration-1.outputs.findings_json }}
+    secrets: inherit
+
+  # ── 6. Report outcome; escalate to a human on any failure. Never merges. ──
+  finalize:
+    needs: [route, plan, plan-gate, approve, iteration-1, iteration-2]
+    if: always() && needs.route.result != 'skipped' && (needs.route.outputs.run == 'true' || needs.route.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Publish phase and summary
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          FALLBACK_ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const needs = JSON.parse(process.env.NEEDS);
+            const issueNumber = Number(needs.route.outputs.issue_number || process.env.FALLBACK_ISSUE);
+            if (!issueNumber) return;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const order = ['route', 'plan', 'plan-gate', 'approve', 'iteration-1', 'iteration-2'];
+            const failed = order.find((job) => ['failure', 'cancelled'].includes(needs[job].result));
+            const last = needs['iteration-2'].result === 'success' ? needs['iteration-2'] : needs['iteration-1'];
+            let phase, message;
+            if (failed) {
+              const blocker = needs[failed].outputs.blocker;
+              phase = blocker ? 'agent:blocked' : 'agent:escalated';
+              message = `**${blocker ? 'BLOCKED' : 'ESCALATED'}** at \`${failed}\`: ${blocker || 'job failed or approval was rejected; inspect the run.'}`;
+            } else if (needs['plan-gate'].outputs.status === 'NEEDS_CLARIFICATION') {
+              phase = 'agent:needs-clarification';
+              message = 'Planner: **NEEDS_CLARIFICATION**. Answer on this issue; your reply resumes the same PR.';
+            } else if (needs['plan-gate'].outputs.status === 'BLOCKED') {
+              phase = 'agent:blocked';
+              message = 'Planner: **BLOCKED**. See the planner summary and PR.';
+            } else if (last.result === 'success') {
+              const decision = last.outputs.decision;
+              const exhausted = decision === 'REQUEST_CHANGES';
+              phase = { PASS: 'agent:ready-for-human-review', BLOCKED: 'agent:blocked' }[decision] || 'agent:escalated';
+              message = `Reviewer: **${decision}** for \`${last.outputs.head_sha}\`` +
+                (exhausted ? ' after the single remediation attempt — escalated to a human.' : '. A human owns the merge decision.');
+            } else {
+              return; // Run skipped before doing work.
+            }
+            const labels = (await github.paginate(github.rest.issues.listLabelsOnIssue, { owner, repo, issue_number: issueNumber, per_page: 100 }))
+              .map((label) => label.name).filter((name) => name.startsWith('agent:'));
+            for (const name of labels) await github.rest.issues.removeLabel({ owner, repo, issue_number: issueNumber, name });
+            await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: [phase] });
+            await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber,
+              body: `<!-- agent-pipeline -->\n${message}\n\nRun: ${runUrl}` });
+            await core.summary.addHeading('Agent pipeline').addRaw(`${phase}\n\n${message}`).write();

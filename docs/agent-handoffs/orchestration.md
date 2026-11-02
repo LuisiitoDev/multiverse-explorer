@@ -68,8 +68,11 @@ matching open agent PR, or creates `agent-plan/issue-N` with a data-only
 close the extras, then comment `/agent plan`. An existing branch without a PR
 blocks too (fail-closed; nothing is deleted or recreated).
 
-If the PR branch does not include current `main`, update it with GitHub's branch
-update, then `/agent plan`. Non-writers' comments are ignored silently.
+If the PR branch does not include current `main`, `route` updates it with
+GitHub's update-branch (a merge commit, never a force-push) and plans on the new
+head. This is safe because `route` always starts a new planning revision, so no
+approval exists yet. A merge conflict blocks with the reason; resolve it, then
+`/agent plan`. Non-writers' comments are ignored silently.
 
 ## Human input and approval
 
@@ -109,6 +112,7 @@ There is no durable state to repair: the workflow run *is* the state.
 |---|---|
 | Transient failure (runner, API, model) | **Re-run failed jobs** on the run |
 | Gate blocked (stale plan, moved head, edited approval) | Fix the cause, then `/agent plan` |
+| `main` moved while waiting for approval | `/agent plan` (route updates the branch and replans) |
 | Want a fresh revision | `/agent plan` or manual dispatch (queued behind any active run for the issue) |
 | Abandon a waiting run | Reject the deployment or cancel the run |
 

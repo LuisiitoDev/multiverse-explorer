@@ -133,10 +133,29 @@ jobs:
                 await github.rest.issues.addLabels({ owner, repo, issue_number: created.number, labels: ['agent-plan'] });
                 prNumber = created.number;
               }
-              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              const { data: ancestry } = await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${main}...${pr.head.sha}` });
-              if (!['ahead', 'identical'].includes(ancestry.status))
-                fail(`PR #${prNumber} does not include current main; update its branch, then comment \`/agent plan\``);
+              let { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              const includesMain = async (head) => ['ahead', 'identical'].includes(
+                (await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${main}...${head}` })).data.status);
+              if (!(await includesMain(pr.head.sha))) {
+                // A new planning revision always starts from current main. Use GitHub's
+                // controlled update-branch (merge commit, never force-push). Safe here:
+                // route starts planning, so no approval exists yet to invalidate.
+                try {
+                  await github.rest.pulls.updateBranch({ owner, repo, pull_number: prNumber, expected_head_sha: pr.head.sha });
+                } catch (error) {
+                  if (error.status === 422) fail(`PR #${prNumber} cannot be updated with main automatically (${error.message}); resolve conflicts, then comment \`/agent plan\``);
+                  throw error;
+                }
+                // update-branch is asynchronous: wait (bounded) for the new head.
+                let updated = false;
+                for (let i = 0; i < 24 && !updated; i++) {
+                  await new Promise((resolve) => setTimeout(resolve, 5000));
+                  ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
+                  updated = await includesMain(pr.head.sha);
+                }
+                if (!updated) fail(`PR #${prNumber} branch update with main did not complete in time; retry \`/agent plan\``);
+                core.notice(`Updated PR #${prNumber} with main; new head ${pr.head.sha}`);
+              }
 
               // Human-decision digest: bot messages and control commands excluded.
               const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue, per_page: 100 });

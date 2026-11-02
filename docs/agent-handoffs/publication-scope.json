@@ -4,7 +4,6 @@
     "frontend/**",
     "backend/**",
     "infra/**",
-    ".github/workflows/**",
     "THIRD_PARTY_NOTICES.md",
     "docs/blue-green-deployment.md",
     "docs/canary-deployment.md"

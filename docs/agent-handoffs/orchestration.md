@@ -172,6 +172,17 @@ paths against that envelope before approval/implementation. This is a path
 compatibility check, not proof of credentials, protected-file acceptance or a
 successful push; those controls still apply during publication.
 
+Workflow files under `.github/workflows/` are human-only and are excluded from
+the Implementer's publication envelope. The Planner records required workflow
+changes, dependencies and verification as manual tasks in the plan, never in
+the agent's allowed execution paths. If required manual work is unfinished,
+the Planner returns BLOCKED before implementation; the human applies and
+validates it, then a fresh planning run verifies that work. The Implementer
+also reports PARTIAL if it discovers an unmet manual dependency. Neither agent
+may omit acceptance criteria to make a run pass. A plan with workflow paths in the agent's allowed scope is
+rejected by plan-gate before implementation. The publisher uses its existing
+GitHub Actions token and requires no publisher GitHub App configuration.
+
 The immediate push-tool response queues an intent. Only the reusable workflow's
 `push_commit_sha` output, an open canonical PR and its actual remote history
 prove publication. Implement-gate distinguishes an absent publisher result,

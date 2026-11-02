@@ -121,6 +121,14 @@ Refresh issue/comments before the handoff. Hash the actual saved bytes using
 baseline (main), **not** this PR's planning commit. Write execution_scope with
 allowed_paths/denied_paths matching plan.md: exact paths or directory/** only.
 A changed requirement/decision must be visible in the updated spec/plan.
+Changes under `.github/workflows/` are human-only: do not include them in
+execution_scope.allowed_paths. Describe each required change and its validation
+in plan.md as an explicit manual task, while retaining the original acceptance
+criteria. If a required workflow change is not yet complete and verified, set
+the handoff status to BLOCKED and identify the manual task; do not start
+implementation. Record the manual action in the nonempty
+`requires_human_decision` array and link it to the plan. A human can apply the change, after which a fresh planning run
+must verify the repository and validations before treating it as complete.
 
 Status is PLANNED, NEEDS_CLARIFICATION or BLOCKED. PLANNED is not approval.
 When clarification is needed, list concrete questions, publish the partial

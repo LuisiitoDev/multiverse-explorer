@@ -25,6 +25,7 @@ function setup(planning = false) {
   const issue = {number: 50, title: 'Globe', body: 'Approved task', state: 'open'};
   const snapshot = JSON.stringify({number: issue.number, title: issue.title, body: issue.body});
   const handoff = copy(fixture);
+  handoff.execution_scope.allowed_paths = handoff.execution_scope.allowed_paths.filter(p => !p.startsWith('.github/workflows/'));
   handoff.base_commit = BASE; handoff.spec.spec_sha256 = sha('spec'); handoff.plan.plan_sha256 = sha('plan');
   handoff.issue.snapshot_sha256 = sha(snapshot);
   const approval = {issue_number: 50, pr_number: 74, approved_head_sha: PLAN,
@@ -98,6 +99,7 @@ test('publisher envelope matches the authored safe output, including the three a
     assert.ok(envelope.includes(p)); assert.ok(fixture.execution_scope.allowed_paths.includes(p));
   }
   assert.ok(!envelope.includes('**')); assert.ok(!envelope.includes('docs/**'));
+  assert.ok(!envelope.some(p => p === '.github/workflows' || p.startsWith('.github/workflows/')));
   assert.ok(!source.includes('protected-files: allowed'));
 });
 test('approved published implementation advances with the actual remote head', async () => {
@@ -120,7 +122,9 @@ for (const [name, change, message] of [
   ['changed approved plan', f => {f.state.material[`${CODE}:specs/issue-50/plan.md`] = 'new plan';}, /plan changed/],
   ['path outside approved scope', f => {f.state.diff.push({filename: 'backend/unapproved.cs'});}, /outside approved scope/],
   ['denied path overrides allow', f => {f.state.handoff.execution_scope.allowed_paths.push('backend/**'); f.state.diff.push({filename: 'backend/unapproved.cs'});}, /outside approved scope/],
-  ['agent control workflow modification', f => {f.state.diff.push({filename: '.github/workflows/agent-pipeline.yml'});}, /outside approved scope/],
+  ['agent control workflow modification', f => {f.state.diff.push({filename: '.github/workflows/agent-pipeline.yml'});}, /Workflow changes require a human/],
+  ['workflow modification in an old approved scope', f => {f.state.handoff.execution_scope.allowed_paths.push('.github/workflows/cd.yml'); f.state.diff.push({filename: '.github/workflows/cd.yml'});}, /Workflow changes require a human/],
+  ['rename from a workflow', f => {f.state.diff.push({filename: 'frontend/src/old.yml', previous_filename: '.github/workflows/cd.yml'});}, /Workflow changes require a human/],
   ['rename from denied location', f => {f.state.diff.push({filename: 'frontend/src/ok.ts', previous_filename: 'backend/private.cs'});}, /outside approved scope/],
   ['path traversal', f => {f.state.diff.push({filename: 'frontend/src/../../secret.txt'});}, /Invalid scope path/],
   ['truncated GitHub compare', f => {f.state.diff = Array.from({length: 300}, () => ({filename: 'frontend/src/a.ts'}));}, /Incomplete implementation diff/],
@@ -132,8 +136,17 @@ for (const [name, change, message] of [
   const f = setup(); change(f); await f.run(); assert.match(f.failures.join('\n'), message);
   assert.equal(f.outputs.head_sha, undefined); assert.deepEqual(f.state.writes, []);
 });
-test('planner preflight accepts the actual approved scope before implementation', async () => {
+test('planner preflight accepts the scope after workflow files are removed', async () => {
   const f = setup(true); await f.run(); assert.deepEqual(f.failures, []); assert.equal(f.outputs.status, 'PLANNED');
+});
+test('planner preflight rejects the original scope with workflow files', async () => {
+  const f = setup(true); f.state.handoff.execution_scope.allowed_paths = copy(fixture.execution_scope.allowed_paths); await f.run();
+  assert.match(f.failures.join(), /outside publication capability: .*\.github\/workflows\/cd\.yml/);
+  assert.equal(f.outputs.status, undefined); assert.deepEqual(f.state.writes, []);
+});
+test('planner BLOCKED stops before approval when manual work is incomplete', async () => {
+  const f = setup(true); f.state.handoff.status = 'BLOCKED'; f.state.handoff.requires_human_decision = ['Apply and validate the workflow change manually']; await f.run();
+  assert.deepEqual(f.failures, []); assert.equal(f.outputs.status, 'BLOCKED'); assert.deepEqual(f.state.writes, []);
 });
 test('planner preflight blocks an unsupported publication path before human approval', async () => {
   const f = setup(true); f.state.handoff.execution_scope.allowed_paths.push('docs/unsupported.md'); await f.run();

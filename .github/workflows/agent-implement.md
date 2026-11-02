@@ -122,7 +122,6 @@ safe-outputs:
     - frontend/**
     - backend/**
     - infra/**
-    - .github/workflows/**
     - THIRD_PARTY_NOTICES.md
     - docs/blue-green-deployment.md
     - docs/canary-deployment.md
@@ -149,6 +148,11 @@ The canonical PR head is already checked out. Read originating issue/comments
 through native GitHub MCP, constitution, spec.md, plan.md and planner-handoff.json.
 Use the approved execution_scope; metadata writes are limited to this issue's
 tasks.md and implementation-handoff.json. Do not edit approved planning files.
+Never create, edit, delete, rename or publish files under `.github/workflows/`.
+Only a human may apply workflow changes. If the plan requires such work, keep
+it visible in the handoff as a manual dependency and report PARTIAL until the
+required human changes and validation have actually been completed. Do not
+claim the issue is complete or remove acceptance criteria to bypass that work.
 If context.attempt is 1, fix only context.remediation findings within that scope.
 
 Add only the npm dependencies that plan.md explicitly names, with `npm install`

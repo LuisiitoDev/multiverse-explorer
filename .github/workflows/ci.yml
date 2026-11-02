@@ -11,6 +11,18 @@ on:
 
   workflow_dispatch: 
 
+  # Reused by agent-pipeline.yml to validate the exact canonical PR head.
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA to validate (defaults to the triggering commit)
+        required: false
+        type: string
+        default: ''
+    secrets:
+      SONAR_TOKEN:
+        required: false
+
 env:
   NODE_VERSION: 22
   DOTNET_VERSION: '10.0.x'
@@ -22,6 +34,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -52,6 +66,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -82,6 +98,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.ref || github.sha }}
           # SonarCloud needs full history to diff against main for New Code.
           fetch-depth: 0
 

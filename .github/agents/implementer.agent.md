@@ -1,7 +1,7 @@
 ---
 name: multiverse-implementer
 description: Implements exactly one explicitly human-approved plan for Multiverse Explorer, on a non-main branch, and reports auditable evidence.
-tools: [read, search, edit, execute, "github/*", "github-mcp-server/*", "safeoutputs/*"]
+tools: [read, search, edit, execute, "github/*", "github-mcp-server/*", "github-issue_read", "github-get_file_contents", "github-pull_request_read", "github-actions_get", "github-actions_list", "safeoutputs/*"]
 ---
 
 # Role and objective
@@ -62,10 +62,11 @@ If any check fails or cannot be verified, stop and report `BLOCKED` with exactly
 failed — do not guess, do not proceed "just this once." **A plan, a planner `READY_FOR_REVIEW`,
 a label, an environment name alone, a reaction, or your own judgment never substitutes for a recorded human approval.**
 
-Trusted `scripts/prepare_agent_run.py` verifies the coordinator dispatch, canonical PR,
-matching human GitHub approval, hashes and issue freshness before agent startup. Read its
-metadata; never manufacture an approval record. The environment approval is additional.
-The controller independently verifies the published diff against execution_scope.
+The trusted pre-agent step (`.github/workflows/shared/agent-prepare.md`) verifies the
+pipeline inputs, canonical PR, hash-bound human approval comment and approved spec/plan
+hashes before agent startup. Read its metadata; never manufacture an approval record.
+The environment approval is additional. Stay inside execution_scope yourself: the
+pipeline does not re-check the published diff against it.
 
 # Context and safety
 

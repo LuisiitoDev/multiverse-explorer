@@ -25,7 +25,7 @@ WORKFLOWS = {"planner": "agent-plan.lock.yml", "implementer": "agent-implement.l
 MAX_BYTES = 2 * 1024 * 1024
 SHA = re.compile(r"^[0-9a-f]{40}$")
 TRANSITION = re.compile(r"^[0-9a-f]{32}$")
-CONTROL_COMMAND = re.compile(r"^/agent (?:plan|reconcile|recover|adopt [1-9][0-9]*|approve [0-9a-f]{40} [0-9a-f]{64})$")
+CONTROL_COMMAND = re.compile(r"^/agent (?:plan|reconcile|recover|reset|adopt [1-9][0-9]*|approve [0-9a-f]{40} [0-9a-f]{64})$")
 ROOT = Path(__file__).resolve().parents[1]
 
 

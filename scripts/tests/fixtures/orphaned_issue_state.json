@@ -1,0 +1,96 @@
+{
+  "approval": null,
+  "attempt": 0,
+  "blocker": "An agent is already active",
+  "branch": "agent-plan/issue-50",
+  "comments_sha256": "c1438689869d6125c710d27027268be5160c6633587228f070546c2cfe681b3b",
+  "handoff_sha256": null,
+  "head_sha": "1f88e637c2b0ed415fea59fed9b4da68c7122b22",
+  "history": [
+    {
+      "at": "2026-11-02T01:58:02.873550Z",
+      "phase": "NEW",
+      "reason": "Created canonical draft PR before running Planner",
+      "run_id": "41375164953"
+    },
+    {
+      "at": "2026-11-02T01:58:05.888191Z",
+      "phase": "PLANNING",
+      "reason": "Persist dispatch intent before invoking worker",
+      "run_id": "41375164953"
+    },
+    {
+      "at": "2026-11-02T01:58:08.008350Z",
+      "phase": "PLANNING",
+      "reason": "Worker dispatch accepted",
+      "run_id": "41375164953"
+    },
+    {
+      "at": "2026-11-02T01:58:09.269744Z",
+      "phase": "PLANNING",
+      "reason": "Record processed event",
+      "run_id": "41375164953"
+    },
+    {
+      "at": "2026-11-02T02:18:47.999613Z",
+      "phase": "BLOCKED",
+      "reason": "Gate blocked transition",
+      "run_id": "41377031224"
+    },
+    {
+      "at": "2026-11-02T02:18:50.334167Z",
+      "phase": "BLOCKED",
+      "reason": "Record processed event",
+      "run_id": "41377031224"
+    },
+    {
+      "at": "2026-11-02T02:24:51.853427Z",
+      "phase": "BLOCKED",
+      "reason": "Gate blocked transition",
+      "run_id": "41377577000"
+    },
+    {
+      "at": "2026-11-02T02:24:54.371841Z",
+      "phase": "BLOCKED",
+      "reason": "Record processed event",
+      "run_id": "41377577000"
+    },
+    {
+      "at": "2026-11-02T02:29:09.832427Z",
+      "phase": "BLOCKED",
+      "reason": "Gate blocked transition",
+      "run_id": "41377966022"
+    },
+    {
+      "at": "2026-11-02T02:29:11.936837Z",
+      "phase": "BLOCKED",
+      "reason": "Record processed event",
+      "run_id": "41377966022"
+    }
+  ],
+  "inflight": {
+    "delivery": "sent",
+    "inputs": {
+      "expected_head_sha": "1f88e637c2b0ed415fea59fed9b4da68c7122b22",
+      "issue_number": "50",
+      "pr_number": "74",
+      "transition_id": "38661ab445894ffe8b37c6331552e36b"
+    },
+    "requested_at": "2026-11-02T01:58:05.888175Z",
+    "source_sha": "988df65db9246c3be0b80a531d308a4c17a25140",
+    "transition_id": "38661ab445894ffe8b37c6331552e36b",
+    "worker": "planner"
+  },
+  "issue_number": 50,
+  "last_worker": "planner",
+  "phase": "BLOCKED",
+  "pr_number": 74,
+  "processed_events": [
+    "label:50:41375164953",
+    "label:50:41377031224",
+    "label:50:41377577000",
+    "label:50:41377966022"
+  ],
+  "revision": 10,
+  "schema_version": "1.0.0"
+}

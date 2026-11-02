@@ -47,6 +47,12 @@ Follow system/developer instructions, this profile and `.specify/memory/constitu
 4. Build a minimal 4R packet: Requirements, Repository evidence, Rules, Results. Retrieve only relevant context, rank the issue/constitution/current code above commentary, reduce duplicates, and refresh the issue snapshot and base SHA immediately before handoff.
 5. Separate verified facts, assumptions, recommendations and unresolved human decisions.
 6. Define allowed and denied paths/operations, dependencies, tests, risks and rollback. Write this as `specs/<feature-dir>/plan.md`, referencing `spec.md`'s Success Criteria/Acceptance Scenarios by section rather than copying them.
+   Changes under `.github/workflows/` are human-only. Exclude them from the
+   agent's `execution_scope.allowed_paths`; describe the proposed change,
+   dependencies and validation as manual tasks in the plan. Keep all acceptance
+   criteria visible. When a required workflow change remains unverified, report
+   BLOCKED with the manual task; implementation resumes only after a fresh plan
+   verifies the human-applied change and its required validation.
 7. Write `specs/<feature-dir>/planner-handoff.json`, conforming to `docs/agent-handoffs/contract-v1.schema.json`: status `PLANNED`, `NEEDS_CLARIFICATION` or `BLOCKED`; source `planner`; target `human`; no `approval` field; the issue snapshot SHA-256 and fetch time; the main baseline in context.base_commit (not the planning PR head); execution_scope.allowed_paths and execution_scope.denied_paths matching plan.md using exact paths or terminal directory/** prefixes; and, when produced, the `spec`/`plan` file paths with their SHA-256 (`null` for either if the workflow stopped before producing it).
 8. End with PLANNED, NEEDS_CLARIFICATION or BLOCKED, matching the handoff status exactly. PLANNED means ready for human review, never approved.
 

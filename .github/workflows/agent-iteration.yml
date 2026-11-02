@@ -182,6 +182,7 @@ jobs:
               for (const changed of ancestry.files) {
                 for (const p of new Set([changed.filename, changed.previous_filename || changed.filename])) {
                   pathRule(p);
+                  if (p.startsWith('.github/workflows/')) fail(`Workflow changes require a human: ${p}`);
                   if (!metadata.includes(p) && (scope.denied_paths.some((r) => matches(p, r)) ||
                       !scope.allowed_paths.some((r) => matches(p, r)))) fail(`Published path outside approved scope: ${p}`);
                 }

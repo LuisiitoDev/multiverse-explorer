@@ -5,9 +5,6 @@ remediation. Orchestration is expressed **entirely as GitHub Actions workflows**
 one pipeline run chains the three gh-aw agents as reusable workflows. No Python
 controller, no state branch, no `workflow_run` callbacks. No agent merges or deploys.
 
-Publisher authentication is a prerequisite between route and plan (omitted
-from the simplified graph below). See [publisher App setup](./publisher-app.md).
-
 ## Topology
 
 ```mermaid
@@ -54,10 +51,7 @@ flowchart LR
   An environment without protection rules runs `approve` immediately, which then
   fails closed because GitHub has no native human review for that run.
 - Secrets used by the workers (`COPILOT_GITHUB_TOKEN`, gh-aw tokens) and
-  `SONAR_TOKEN` are passed with `secrets: inherit`. The publisher additionally
-  references secret `GH_AW_APP_PRIVATE_KEY` and public variable
-  `GH_AW_APP_CLIENT_ID`; these require owner setup as described above. The key
-  is used only in publisher auth/output jobs, never the model/MCP.
+  `SONAR_TOKEN` are passed with `secrets: inherit`. No new secrets.
 - Labels: `agent-lab` (entry), `agent-plan` (canonical PR marker). Phase labels
   `agent:planning`, `agent:needs-clarification`, `agent:awaiting-approval`,
   `agent:implementing`, `agent:reviewing`, `agent:ready-for-human-review`,
@@ -178,6 +172,17 @@ paths against that envelope before approval/implementation. This is a path
 compatibility check, not proof of credentials, protected-file acceptance or a
 successful push; those controls still apply during publication.
 
+Workflow files under `.github/workflows/` are human-only and are excluded from
+the Implementer's publication envelope. The Planner records required workflow
+changes, dependencies and verification as manual tasks in the plan, never in
+the agent's allowed execution paths. If required manual work is unfinished,
+the Planner returns BLOCKED before implementation; the human applies and
+validates it, then a fresh planning run verifies that work. The Implementer
+also reports PARTIAL if it discovers an unmet manual dependency. Neither agent
+may omit acceptance criteria to make a run pass. A plan with workflow paths in the agent's allowed scope is
+rejected by plan-gate before implementation. The publisher uses its existing
+GitHub Actions token and requires no publisher GitHub App configuration.
+
 The immediate push-tool response queues an intent. Only the reusable workflow's
 `push_commit_sha` output, an open canonical PR and its actual remote history
 prove publication. Implement-gate distinguishes an absent publisher result,
@@ -192,14 +197,6 @@ were still missing. Fixing publication does not complete that application work.
 PARTIAL/BLOCKED or missing/failed validation continues to stop CI/review and is
 reported with pending checks. The pipeline never treats a local commit, queued
 output or partial implementation as a completed publication/implementation.
-
-Run 41523504642 passed path checks, then the push was rejected for missing
-Workflows permission. The publisher now uses a configured GitHub App with
-allow-workflows enabled. Its workflow envelope is narrowed to the four deployment
-files from the approved plan. [publisher-app.md](./publisher-app.md) documents
-the required installation/key setup and early token-permission check.
-Protected-file review and PARTIAL remain blocking controls. Local tests do not
-establish App readiness or hosted success.
 
 ## Migration from the Python controller
 

@@ -4,10 +4,6 @@
     "frontend/**",
     "backend/**",
     "infra/**",
-    ".github/workflows/cd.yml",
-    ".github/workflows/infra.yml",
-    ".github/workflows/bluegreen-swap.yml",
-    ".github/workflows/set-feature-flag.yml",
     "THIRD_PARTY_NOTICES.md",
     "docs/blue-green-deployment.md",
     "docs/canary-deployment.md"

@@ -27,7 +27,7 @@ Backend:
 - No root solution file: run `dotnet build`/`dotnet test` against the specific `.csproj` you changed, not a solution-wide command.
 
 DevOps:
-- GitHub Actions (`.github/workflows/`)
+- GitHub Actions (`.github/workflows/`) — changes applied manually by a human
 - Bicep infrastructure (`infra/`)
 
 Spec-Driven Development (SDD):
@@ -66,7 +66,7 @@ The trusted pre-agent step (`.github/workflows/shared/agent-prepare.md`) verifie
 pipeline inputs, canonical PR, native human environment review for this run and approved
 spec/plan hashes before agent startup. Read its metadata; never manufacture an approval record.
 The native review is bound to the exact plan; no issue approval command is required. Stay inside execution_scope yourself: the
-pipeline does not re-check the published diff against it.
+pipeline also checks the published diff against it.
 
 # Context and safety
 
@@ -126,10 +126,11 @@ Mirrors the `/speckit-implement` phase of the SDD pipeline. Work phase by phase;
 - API contract changes, new public endpoints, or changes to architectural boundaries not already
   called out in the plan.
 - Adding, removing, or upgrading dependencies (npm/NuGet packages).
-- Changes to CI/CD workflows (`.github/workflows/`) or deployment/infrastructure (`infra/`,
-  Bicep).
+- Changes to deployment/infrastructure (`infra/`, Bicep).
 
 ## Prohibited outright
+- Creating, editing, deleting, renaming or publishing `.github/workflows/` files,
+  even when the plan is approved; record the human task and report it incomplete.
 - Reading, printing, logging, or hardcoding secrets or credentials.
 - Direct git push, force-push, opening a replacement PR, or committing on `main`.
 - Merging a pull request.

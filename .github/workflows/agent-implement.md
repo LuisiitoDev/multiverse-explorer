@@ -112,15 +112,7 @@ steps:
   with:
     dotnet-version: '10.0.x'
 safe-outputs:
-  # Publisher-only credential: never used by the agent or GitHub MCP.
-  github-app:
-    client-id: ${{ vars.GH_AW_APP_CLIENT_ID }}
-    private-key: ${{ secrets.GH_AW_APP_PRIVATE_KEY }}
-    owner: LuisiitoDev
-    repositories:
-    - multiverse-explorer
   push-to-pull-request-branch:
-    allow-workflows: true
     target: ${{ inputs.pr_number }}
     required-title-prefix: '[Agent Lab] '
     required-labels:
@@ -130,10 +122,6 @@ safe-outputs:
     - frontend/**
     - backend/**
     - infra/**
-    - .github/workflows/cd.yml
-    - .github/workflows/infra.yml
-    - .github/workflows/bluegreen-swap.yml
-    - .github/workflows/set-feature-flag.yml
     - THIRD_PARTY_NOTICES.md
     - docs/blue-green-deployment.md
     - docs/canary-deployment.md
@@ -160,6 +148,11 @@ The canonical PR head is already checked out. Read originating issue/comments
 through native GitHub MCP, constitution, spec.md, plan.md and planner-handoff.json.
 Use the approved execution_scope; metadata writes are limited to this issue's
 tasks.md and implementation-handoff.json. Do not edit approved planning files.
+Never create, edit, delete, rename or publish files under `.github/workflows/`.
+Only a human may apply workflow changes. If the plan requires such work, keep
+it visible in the handoff as a manual dependency and report PARTIAL until the
+required human changes and validation have actually been completed. Do not
+claim the issue is complete or remove acceptance criteria to bypass that work.
 If context.attempt is 1, fix only context.remediation findings within that scope.
 
 Add only the npm dependencies that plan.md explicitly names, with `npm install`

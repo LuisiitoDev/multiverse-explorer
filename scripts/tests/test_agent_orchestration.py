@@ -335,5 +335,89 @@ class WorkflowRunCallbackTests(unittest.TestCase):
         self.assertIsNone(self.api.saved["inflight"])
 
 
+class OrphanedTransitionTests(unittest.TestCase):
+    def setUp(self):
+        self.api = FakeAPI()
+        self.original = json.loads((Path(__file__).parent / "fixtures/orphaned_issue_state.json").read_text())
+        self.api.saved = copy.deepcopy(self.original)
+        self.event = {"issue": {"number": 50}, "comment": {
+            "id": 999, "body": "/agent reset", "user": {"type": "User", "login": "human"}}}
+
+    def run_metadata(self, worker="planner", status="in_progress", issue=50):
+        filenames = {"planner": "agent-plan.lock.yml", "implementer": "agent-implement.lock.yml", "reviewer": "agent-review.lock.yml"}
+        return {**self.api.run, "name": "unreliable display name", "status": status,
+                "path": ".github/workflows/" + filenames[worker],
+                "display_title": f"{worker} issue #{issue} / {TOKEN}"}
+
+    def test_explicit_reset_releases_deleted_run_reference_without_dispatch(self):
+        handle(self.api, "issue_comment", self.event)
+        state = self.api.saved
+        self.assertEqual(state["phase"], "NEW")
+        self.assertIsNone(state["inflight"])
+        self.assertIsNone(state["approval"])
+        self.assertEqual(state["pr_number"], 74)  # A closed PR is not silently reopened/replaced.
+        self.assertEqual(state["branch"], self.original["branch"])
+        self.assertEqual(state["history"][:len(self.original["history"])], self.original["history"])
+        self.assertTrue(all(key in state["processed_events"] for key in self.original["processed_events"]))
+        self.assertIn("comment:999", state["processed_events"])
+        self.assertIn(self.original["inflight"]["transition_id"], state["history"][-2]["reason"])
+        self.assertEqual([method for _, method, _ in self.api.writes], ["POST"])
+        self.assertEqual(self.api.writes[0][0], "/issues/50/comments")
+
+    def test_reset_refuses_live_planner(self):
+        self.api.collections["/actions/workflows/agent-plan.lock.yml/runs?event=workflow_dispatch"] = [self.run_metadata()]
+        with self.assertRaisesRegex(Blocked, "still active"):
+            handle(self.api, "issue_comment", self.event)
+        self.assertEqual(self.api.saved["inflight"], self.original["inflight"])
+
+    def test_reset_refuses_live_other_worker_for_same_issue(self):
+        self.api.collections["/actions/workflows/agent-implement.lock.yml/runs?event=workflow_dispatch"] = [self.run_metadata("implementer", "waiting")]
+        with self.assertRaisesRegex(Blocked, "still active"):
+            handle(self.api, "issue_comment", self.event)
+        self.assertIsNotNone(self.api.saved["inflight"])
+
+    def test_other_issue_does_not_block_reset(self):
+        self.api.collections["/actions/workflows/agent-plan.lock.yml/runs?event=workflow_dispatch"] = [self.run_metadata(issue=500)]
+        handle(self.api, "issue_comment", self.event)
+        self.assertIsNone(self.api.saved["inflight"])
+
+    def test_terminal_run_can_be_abandoned_but_approval_is_invalidated(self):
+        self.api.saved["approval"] = approved(self.api)["approval"]
+        self.api.collections["/actions/workflows/agent-plan.lock.yml/runs?event=workflow_dispatch"] = [self.run_metadata(status="completed")]
+        handle(self.api, "issue_comment", self.event)
+        self.assertIsNone(self.api.saved["approval"])
+        self.assertEqual(self.api.saved["attempt"], 0)
+
+    def test_failed_actions_read_does_not_clear_lease(self):
+        with patch.object(self.api, "pages", side_effect=Blocked("Actions read denied")):
+            with self.assertRaisesRegex(Blocked, "denied"):
+                handle(self.api, "issue_comment", self.event)
+        self.assertEqual(self.api.saved["inflight"], self.original["inflight"])
+
+    def test_reset_requires_human_writer(self):
+        with patch.object(self.api, "writer", side_effect=Blocked("Repository write permission required")):
+            with self.assertRaisesRegex(Blocked, "permission"):
+                handle(self.api, "issue_comment", self.event)
+        self.assertEqual(self.api.saved, self.original)
+        self.assertFalse(self.api.writes)
+
+    def test_duplicate_reset_comment_is_inert(self):
+        handle(self.api, "issue_comment", self.event)
+        revision, writes = self.api.saved["revision"], len(self.api.writes)
+        handle(self.api, "issue_comment", self.event)
+        self.assertEqual(self.api.saved["revision"], revision)
+        self.assertEqual(len(self.api.writes), writes)
+
+    def test_reapplying_label_cannot_abandon_transition(self):
+        event = {"issue": {"number": 50}, "label": {"name": "agent-lab"}, "sender": {"login": "human", "type": "User"}}
+        with self.assertRaisesRegex(Blocked, "recorded transition"):
+            handle(self.api, "issues", event)
+        self.assertEqual(self.api.saved["inflight"], self.original["inflight"])
+
+    def test_reset_command_is_not_a_new_requirement(self):
+        self.assertTrue(CONTROL_COMMAND.fullmatch("/agent reset"))
+        self.assertFalse(CONTROL_COMMAND.fullmatch("/agent reset and deploy"))
+
+
 if __name__ == "__main__":
     unittest.main()

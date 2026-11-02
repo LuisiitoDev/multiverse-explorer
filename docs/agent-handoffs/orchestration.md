@@ -137,8 +137,24 @@ No periodic polling or AI runs are scheduled.
 Dispatch intent is persisted **before** calling GitHub. If the dispatch response
 is lost, use `/agent recover`: it searches existing runs by transition ID and
 processes their completion. It does not blindly dispatch again. If no unique
-run exists, inspect Actions and the state branch before resetting the intent.
+run exists because run history was deleted, a human repository writer can
+explicitly issue `/agent reset` (also available as the manual coordinator action).
+Reset queries all three worker workflows and refuses to proceed if any matching
+execution for that issue is not completed, if metadata is inconsistent, or if
+Actions evidence cannot be read completely. It is not an automatic stale timeout.
+
+Reset abandons the stored intent, invalidates approval/review evidence and returns
+the task to NEW. It preserves the canonical PR/branch, Git-backed audit history
+and processed event IDs, and records the abandoned transition and source SHA.
+It never cancels a run, dispatches an agent, reopens/closes a PR, changes a remote
+branch or grants implementation approval. A duplicate reset event is inert.
 This deliberately favors avoiding duplicate work over speculative retries.
+
+If the canonical PR was closed, reopen it before planning again, or explicitly
+adopt another open PR. Reset does not reverse the human's decision to close it.
+Update the selected PR branch with main if its ancestry is stale, then request
+fresh planning with `/agent plan`. Applying `agent-lab` again means start planning;
+it does not recover or abandon the previous transition.
 
 State history retains the latest 50 transitions and 100 event IDs. One active
 dispatch and the retained transition identity prevent duplicate completed-run
@@ -193,8 +209,9 @@ is excluded from the privileged job as well. Failed known workers release their
 lease without trusting missing artifacts; duplicate callbacks stay inert.
 
 After installing the correction, an already-stuck transition requires a human
-`/agent recover` command on its issue. This processes the existing failed run and
-clears the lease; it does not rerun the worker. Before `/agent plan`, update the
+`/agent recover` command when its run still exists, or an explicit `/agent reset`
+when deleted run history makes recovery impossible. Neither command reruns the
+worker. Before `/agent plan`, update the
 canonical PR branch with current main if its baseline has advanced. Neither the
 repair command nor a new hosted run is sent automatically by this patch.
 
@@ -202,3 +219,10 @@ Only profiles, the plain Actions controller and Python tests/code changed for
 this repair; the gh-aw worker Markdown/lock pairs are unchanged. No gh-aw
 recompilation is needed solely for these profile/controller edits. Hosted tool
 exposure remains an integration check, not a result established by unit tests.
+
+Run 41377966022 demonstrated the orphaned-state case: its issue-label event tried
+to start planning while issue 50 still held transition
+38661ab445894ffe8b37c6331552e36b. The referenced old run was no longer readable
+(404) and canonical PR 74 was closed. The rejection came from the persisted lease
+gate, not the job's YAML expression evaluator. The new reset route makes that
+operator recovery explicit without allowing a label event to discard live work.

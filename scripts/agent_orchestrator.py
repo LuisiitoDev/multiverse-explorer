@@ -298,6 +298,37 @@ class Coordinator:
         if matches[0]["status"] == "completed":
             self.complete(matches[0])
 
+    def reset(self):
+        """Human-only abandonment of an orphaned/terminal transition.
+
+        Reset does not dispatch, reopen/delete PRs, alter refs, or authorize
+        implementation. Keep canonical identity and audit/event history. The
+        entry routes independently verify the human's repository write role.
+        """
+        issue = self.state["issue_number"]
+        for worker, workflow in WORKFLOWS.items():
+            runs = self.api.pages(f"/actions/workflows/{workflow}/runs?event=workflow_dispatch", "workflow_runs")
+            title = re.compile(rf"{worker} issue #{issue} / [0-9a-f]{{32}}")
+            for run in runs:
+                if not title.fullmatch(run.get("display_title", "")):
+                    continue
+                require(run.get("path") == ".github/workflows/" + workflow and
+                        run.get("event") == "workflow_dispatch" and run.get("head_branch") == "main",
+                        "Cannot reset: matching worker metadata is not verifiable")
+                require(run.get("status") == "completed",
+                        f"Cannot reset: {worker} run {run['id']} is still active; finish or cancel it in Actions first")
+        pending = self.state["inflight"]
+        identity = pending["transition_id"] if pending else "none"
+        source = pending["source_sha"] if pending else "none"
+        self.state.update(phase="NEW", inflight=None, approval=None, attempt=0,
+                          blocker=None, handoff_sha256=None, comments_sha256=None, last_worker=None)
+        self.state.pop("review", None)
+        self.state.pop("remediation", None)
+        self.save(f"Human reset abandoned transition {identity}; source={source}; canonical PR={self.state['pr_number']}")
+        self.comment("Coordinator reset recorded; no agent was started. Canonical PR identity and history were preserved. "
+                     "If its PR was closed, reopen it or select another open PR with `/agent adopt <number>`. "
+                     "Then update the branch with main if needed and use `/agent plan`.")
+
 
 def handle(api, event_name, event):
     coordinator = Coordinator(api)
@@ -348,7 +379,7 @@ def handle(api, event_name, event):
             api.writer(event["comment"]["user"])
             coordinator.load(issue)
             body = event["comment"]["body"].strip()
-            match = re.fullmatch(r"/agent (plan|reconcile|recover|adopt [1-9][0-9]*|approve [0-9a-f]{40} [0-9a-f]{64})", body)
+            match = re.fullmatch(r"/agent (plan|reconcile|recover|reset|adopt [1-9][0-9]*|approve [0-9a-f]{40} [0-9a-f]{64})", body)
             if not match and coordinator.state["phase"] != "NEEDS_CLARIFICATION":
                 return
             command = match[1] if match else "plan"
@@ -362,7 +393,9 @@ def handle(api, event_name, event):
             key = f"manual:{os.environ.get('GITHUB_RUN_ID')}"
         coordinator.load(issue)
         def action():
-            require(not coordinator.state["inflight"] or command == "recover", "An agent is already active")
+            require(not coordinator.state["inflight"] or command in ("recover", "reset"),
+                    "A recorded transition still owns this issue. Use /agent recover; if its run was deleted, use /agent reset. "
+                    "Applying the label again does not recover state.")
             if command.startswith("adopt "):
                 coordinator.canonical(int(command.split()[1]))
                 coordinator.state.update(phase="NEW", approval=None)
@@ -375,6 +408,8 @@ def handle(api, event_name, event):
                 coordinator.dispatch("planner")
             elif command == "recover":
                 coordinator.recover()
+            elif command == "reset":
+                coordinator.reset()
             elif command == "reconcile":
                 coordinator.reconcile()
             else:

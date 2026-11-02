@@ -30,7 +30,7 @@ on:
       action:
         description: Coordinator action (plan starts a new planning revision)
         type: choice
-        options: [reconcile, plan, recover, adopt]
+        options: [reconcile, plan, recover, reset, adopt]
         default: reconcile
       pr_number:
         description: Existing PR number, required only for adopt

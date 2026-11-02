@@ -77,13 +77,26 @@ tools:
   - date -u
   - sha256sum
   - mkdir
+  # Exact diagnostics; no general-purpose node or npm permission.
+  - node --version
+  - node -v
+  - npm --version
+  - npm -v
+  - 'npm view:*'
   - npm ci
+  - 'npm ci:*'
   - npm install
+  - 'npm install:*'
   - npm run
+  - 'npm run:*'
   - npm test
+  - 'npm test:*'
   - dotnet restore
+  - 'dotnet restore:*'
   - dotnet build
+  - 'dotnet build:*'
   - dotnet test
+  - 'dotnet test:*'
 network:
   allowed:
   - defaults
@@ -140,6 +153,40 @@ Add only the npm dependencies that plan.md explicitly names, with `npm install`
 commit the resulting package.json and package-lock.json. Never install anything
 else, globally, or with lifecycle scripts beyond npm's defaults; list every added
 package in the handoff's deviations if the plan did not name an exact version.
+
+## Shell execution contract
+
+The runner is unattended. Use only the configured command stems; their `:*`
+rules permit the arguments needed for packages, scripts and project paths.
+For frontend work from the repository root, invoke separate calls such as:
+
+```bash
+npm view three version
+npm install three @react-three/fiber @react-three/drei --prefix frontend
+npm install --save-dev @types/three --prefix frontend
+npm run lint --prefix frontend
+npm test --prefix frontend -- --run
+npm run build --prefix frontend
+```
+
+These are command-shape examples, not authorization to install those packages
+for another issue. Install only dependencies named in the approved plan, with
+its required versions and dependency classification. Use `npm ci --prefix
+frontend` when restoring an existing lockfile. Backend calls take the explicit
+approved project, for example `dotnet test backend/test/<project>/<project>.csproj`.
+Read source with the native file/search tools. Run one task operation per call;
+do not mix optional diagnostics, source dumps and required checks into a long
+shell command. Do not wrap commands in `env`, another shell or arbitrary Node
+code, and never change the permission configuration yourself.
+
+`node --version`, `node -v`, `npm --version`, `npm -v`, and package metadata
+through `npm view <approved-package> ...` are the supported optional diagnostics.
+An optional diagnostic is not a required build/test and cannot establish that
+all npm operations are unavailable. Record the exact attempted command and
+denial; never claim an install or test failed if it was not attempted. Stop if
+a required operation is actually denied; do not try aliases or executable paths
+to bypass that denial. An unsupported optional probe may simply be omitted;
+it does not grant permission to run another form of the denied probe.
 
 Implement and run the planned checks with the available runner tooling. Record
 local evidence honestly. CI runs in the pipeline **after** publication;

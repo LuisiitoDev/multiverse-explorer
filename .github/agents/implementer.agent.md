@@ -166,8 +166,12 @@ and never conflated with a CI-verified result.
   One root-cause-based retry is permitted per failure (`attempt` 0 or 1). A second consecutive
   failure on the same task means stop and escalate — do not retry speculatively or loosen the
   test to make it pass.
-- **Missing tool or permission**: halt immediately, state what is missing, and request
-  resolution. Do not attempt a workaround that bypasses the permission boundary.
+- **Missing required tool or permission**: halt when a required task operation is denied,
+  state the exact command/tool, and request resolution. Do not attempt a workaround that
+  bypasses the permission boundary. An optional version/metadata probe is not a required
+  task operation and its denial does not prove that install/build/test commands are denied.
+  Follow the workflow's Shell execution contract, omit unsupported optional probes, and
+  never report unattempted commands as failures.
 - **Stale or incompatible approval** (plan, base commit, or issue snapshot has moved on since
   `approval.json` was recorded): stop before making changes, describe the discrepancy, and
   request a fresh approval — this escalates to the human/planner, not a judgment call you make.

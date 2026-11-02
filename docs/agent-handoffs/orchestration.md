@@ -135,7 +135,26 @@ waiting for approval (they get a unique concurrency group).
 ```bash
 gh aw compile agent-plan agent-implement agent-review   # regenerate locks after editing .md sources
 actionlint .github/workflows/agent-pipeline.yml .github/workflows/agent-iteration.yml .github/workflows/ci.yml
+node --test tests/*.test.cjs
 ```
+
+### Implementer shell permissions
+
+Copilot's `shell(npm run)` is an exact permission; `shell(npm run:*)` permits
+script arguments. The Implementer enables bounded `:*` stems for npm
+ci/install/run/test and dotnet restore/build/test, plus exact Node/npm version
+diagnostics and npm view metadata. It does not grant `npm:*`, `node:*`, npx,
+arbitrary shell wrappers, publishing or deployment permissions. Network,
+human approval and safe-output targets are unchanged. Plan scope still governs
+which packages may be installed and which scripts/projects may be executed.
+
+Run 41474990265 reached the Implementer after successful planning and native
+approval, then stopped on denied optional version/metadata probes. It never
+attempted npm install or the required npm checks. The worker now has explicit
+supported diagnostics and instructions to distinguish an optional probe from
+a required task operation. A real denial must never be bypassed. Recompile
+agent-implement after changing its Markdown; local policy/compiled-flag checks
+do not establish a successful hosted implementation or publication.
 
 ## Migration from the Python controller
 

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "enum": [
+        "IMPLEMENTED",
+        "PARTIAL",
+        "BLOCKED"
+      ]
+    },
+    "transition_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "base_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "files_changed": {
+      "type": "array",
+      "maxItems": 300,
+      "items": {
+        "type": "string"
+      }
+    },
+    "requirements_addressed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "local_validation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "result": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_run"
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "result",
+          "evidence"
+        ]
+      }
+    },
+    "deviations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "status",
+    "transition_id",
+    "issue_number",
+    "pr_number",
+    "plan_sha256",
+    "base_commit",
+    "files_changed",
+    "requirements_addressed",
+    "local_validation",
+    "deviations"
+  ]
+}

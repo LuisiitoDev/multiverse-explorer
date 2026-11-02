@@ -1,0 +1,414 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "phase": {
+      "enum": [
+        "NEW",
+        "PLANNING",
+        "NEEDS_CLARIFICATION",
+        "AWAITING_APPROVAL",
+        "IMPLEMENTING",
+        "WAITING_CI",
+        "REVIEWING",
+        "READY_FOR_HUMAN_REVIEW",
+        "BLOCKED",
+        "ESCALATED"
+      ]
+    },
+    "pr_number": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "branch": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "head_sha": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approval": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "schema_version": {
+              "const": "1.0.0"
+            },
+            "issue_number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "pr_number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "actor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "review_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "statement": {
+              "type": "string"
+            },
+            "approved_head_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "spec_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "plan_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "base_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "approved_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "comment_id": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "schema_version",
+            "issue_number",
+            "pr_number",
+            "actor",
+            "statement",
+            "approved_head_sha",
+            "spec_sha256",
+            "plan_sha256",
+            "base_commit",
+            "approved_at"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "review_id"
+              ],
+              "not": {
+                "required": [
+                  "comment_id"
+                ]
+              }
+            },
+            {
+              "required": [
+                "comment_id"
+              ],
+              "not": {
+                "required": [
+                  "review_id"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "inflight": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "worker": {
+              "enum": [
+                "planner",
+                "implementer",
+                "reviewer"
+              ]
+            },
+            "transition_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "issue_number": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                },
+                "pr_number": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "expected_head_sha": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "transition_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{32}$"
+                }
+              },
+              "required": [
+                "issue_number",
+                "pr_number",
+                "expected_head_sha",
+                "transition_id"
+              ]
+            },
+            "delivery": {
+              "enum": [
+                "pending",
+                "sent"
+              ]
+            },
+            "requested_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "worker",
+            "transition_id",
+            "source_sha",
+            "inputs",
+            "delivery",
+            "requested_at"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attempt": {
+      "enum": [
+        0,
+        1
+      ]
+    },
+    "processed_events": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string"
+      }
+    },
+    "history": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "phase": {
+            "enum": [
+              "NEW",
+              "PLANNING",
+              "NEEDS_CLARIFICATION",
+              "AWAITING_APPROVAL",
+              "IMPLEMENTING",
+              "WAITING_CI",
+              "REVIEWING",
+              "READY_FOR_HUMAN_REVIEW",
+              "BLOCKED",
+              "ESCALATED"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "phase",
+          "reason",
+          "run_id"
+        ]
+      }
+    },
+    "comments_sha256": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "handoff_sha256": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "last_worker": {
+      "oneOf": [
+        {
+          "enum": [
+            "planner",
+            "implementer",
+            "reviewer"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "blocker": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "remediation": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "enum": [
+              "Blocker",
+              "Major",
+              "Minor",
+              "Question"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "path",
+          "description",
+          "evidence"
+        ]
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "head_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "decision": {
+          "enum": [
+            "PASS",
+            "REQUEST_CHANGES",
+            "BLOCKED",
+            "ESCALATED"
+          ]
+        }
+      },
+      "required": [
+        "run_id",
+        "head_sha",
+        "decision"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "issue_number",
+    "revision",
+    "phase",
+    "pr_number",
+    "branch",
+    "head_sha",
+    "approval",
+    "inflight",
+    "attempt",
+    "processed_events",
+    "history",
+    "comments_sha256",
+    "handoff_sha256",
+    "last_worker",
+    "blocker"
+  ]
+}

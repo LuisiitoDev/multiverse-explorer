@@ -1,228 +1,132 @@
 # Agent orchestration lab
 
 One issue has one canonical draft PR throughout planning, implementation and
-remediation. A normal GitHub Actions controller owns routing and durable state;
-the three gh-aw workers perform isolated AI executions. No worker merges or deploys.
+remediation. Orchestration is expressed **entirely as GitHub Actions workflows**:
+one pipeline run chains the three gh-aw agents as reusable workflows. No Python
+controller, no state branch, no `workflow_run` callbacks. No agent merges or deploys.
 
-## Compile before merging
+## Topology
 
-The source-only PR intentionally leaves the existing `.lock.yml` files unchanged
-because compilation is being performed by the repository owner. **Do not merge
-the source changes until all three production lock files have been regenerated.**
-Otherwise the old label-triggered workers and new controller could both activate.
-
-From this branch, with your selected gh-aw compiler:
-
-```bash
-gh aw version
-gh aw compile agent-plan
-gh aw compile agent-implement
-gh aw compile agent-review
-git diff -- .github/workflows
+```mermaid
+flowchart LR
+  T([label agent-lab<br/>/agent plan<br/>clarification reply<br/>workflow_dispatch]) --> route
+  route --> plan[[plan<br/>agent-plan.lock.yml]] --> pg{plan-gate}
+  pg -- NEEDS_CLARIFICATION / BLOCKED --> fin
+  pg -- PLANNED --> ap[/approve<br/>environment: implementation-approval/]
+  ap --> it1
+  subgraph it1 [iteration-1 · agent-iteration.yml]
+    impl[[implement]] --> ig{implement-gate} --> ci[[ci.yml]] --> rev[[review]] --> rg{review-gate}
+  end
+  it1 -- REQUEST_CHANGES --> it2[iteration-2<br/>same workflow, attempt 2]
+  it1 -- PASS / BLOCKED / ESCALATED --> fin
+  it2 --> fin([finalize<br/>labels + summary comment])
 ```
 
-Commit the regenerated normal locks to this same branch. Compilation and a live
-Actions run are different checks; no hosted run was dispatched while authoring
-this change. Confirm expression-valued safe-output targets resolve to the
-validated PR/issue numbers in the generated locks before enabling the flows.
+| File | Role |
+|---|---|
+| `.github/workflows/agent-pipeline.yml` | Entry point and sequential orchestration (`needs`), human gate, bounded retry, escalation |
+| `.github/workflows/agent-iteration.yml` | Reusable implement ► CI ► review cycle, called at most twice |
+| `.github/workflows/agent-{plan,implement,review}.md` | gh-aw worker sources (`workflow_call`); compile to `.lock.yml` |
+| `.github/workflows/shared/agent-prepare.md` | Shared trusted pre-agent step imported by all workers |
+| `.github/workflows/ci.yml` | Also `workflow_call`, so the pipeline validates the exact PR head |
+| `docs/agent-handoffs/*.schema.json` | Handoff contracts validated (ajv) at every gate |
+
+### Orchestration concepts used (GH-600 mapping)
+
+| Concept | Where |
+|---|---|
+| Sequential orchestration with `needs` | `route → plan → plan-gate → approve → iteration-1 → iteration-2 → finalize` |
+| Reusable workflows (`workflow_call`), nested | pipeline → `agent-iteration.yml` → gh-aw locks / `ci.yml` |
+| Artifact/handoff-based coordination | planner/implementation handoff files on the PR, review artifact, job outputs |
+| Reasoning vs. writing boundary | agents run read-only; writes only via gh-aw safe outputs and trusted gate jobs |
+| Human-in-the-loop gate | `environment: implementation-approval` **plus** hash-bound `/agent approve` comment |
+| Isolation / concurrency | per-issue `concurrency` group; per-invocation gh-aw `job-discriminator` |
+| Bounded retry + escalation threshold | exactly one remediation iteration; second `REQUEST_CHANGES` escalates |
+| Failure handling | `finalize` runs `always()`, labels `agent:blocked`/`agent:escalated`, links the run |
+| Observability | one run graph per revision, `agent:*` phase labels, step summary, issue comments |
 
 ## Repository controls
 
-- Keep the existing `implementation-approval` environment configured with a
-  required human reviewer. An environment name without protection rules is not
-  an approval control. The controller separately verifies a human approval comment or approving PR
-  review for the exact planning revision and records the spec/plan hashes.
-- The controller's `GITHUB_TOKEN` needs contents/issues/pull-requests/actions
-  write permissions. The workers retain read-only API credentials; publication
-  uses gh-aw safe outputs in separate jobs. All API destinations are fixed to
-  this repository on api.github.com. No new external services or secrets.
-- Ensure `agent-plan` is an existing repository label. Existing agent PRs already
-  use it. Keep the `[Agent Lab] ` title prefix and planning branch prefix.
-- Retain CI and CODEOWNER protections. Protected workflow-file publishing may
-  still require operator attention; this change does not bypass those controls.
-- State is saved on `agent-orchestration-state` at `.agent-state/issue-N.json`,
-  never on main or the implementation branch. Each write uses the prior blob SHA
-  as a compare-and-swap lease. State contains references/decisions, not secrets.
+- `implementation-approval` environment **must** have a required human reviewer.
+  An environment without protection rules runs `approve` immediately, which then
+  fails closed because no approval comment exists yet.
+- Secrets used by the workers (`COPILOT_GITHUB_TOKEN`, gh-aw tokens) and
+  `SONAR_TOKEN` are passed with `secrets: inherit`. No new secrets.
+- Labels: `agent-lab` (entry), `agent-plan` (canonical PR marker). Phase labels
+  `agent:planning`, `agent:needs-clarification`, `agent:awaiting-approval`,
+  `agent:implementing`, `agent:reviewing`, `agent:ready-for-human-review`,
+  `agent:blocked`, `agent:escalated` are created on first use.
+- Keep CI and CODEOWNER protections. The `[Agent Lab] ` title prefix and the
+  `agent-plan/issue-N` branch prefix are required.
 
 ## Start or resume
 
-Apply `agent-lab` to an issue, or comment `/agent plan` as a repository writer.
-The controller adopts the only matching open agent PR. If none exists, it creates
-a stable `agent-plan/issue-N` branch and a draft PR with a small data-only
-`specs/issue-N/task.json` seed. This permits creating the PR before planning
-without prefetching the issue's requirements. The Planner still reads the issue
-and every comments page using GitHub MCP.
+Apply `agent-lab` to an issue, comment `/agent plan` as a repository writer, or
+run **Agent pipeline** manually with the issue number. `route` adopts the only
+matching open agent PR, or creates `agent-plan/issue-N` with a data-only
+`specs/issue-N/task.json` seed and a draft PR. More than one matching PR blocks:
+close the extras, then comment `/agent plan`. An existing branch without a PR
+blocks too (fail-closed; nothing is deleted or recreated).
 
-If several planning PRs already exist, the controller blocks rather than guessing.
-On the originating issue, choose one explicitly:
-
-```text
-/agent adopt 71
-```
-
-Then comment `/agent plan`. The chosen existing branch, including its random
-suffix, is preserved. No other PRs are automatically closed or modified.
-
-The initial bootstrap is intentionally fail-closed. If a GitHub API failure
-leaves a branch but no PR, inspect that branch and finish creating/adopting its
-draft PR before retrying. Never force-delete/recreate it automatically.
+If the PR branch does not include current `main`, update it with GitHub's branch
+update, then `/agent plan`. Non-writers' comments are ignored silently.
 
 ## Human input and approval
 
-When the phase is NEEDS_CLARIFICATION, a new human repository-writer comment on
-the originating issue starts a new Planner execution on the same PR. Comments
-while an execution is active do not launch another worker. If human decisions
-change during planning, that result is blocked; `/agent plan` reconciles them.
+- **NEEDS_CLARIFICATION**: the run ends with `agent:needs-clarification`. A
+  writer's ordinary reply on the issue starts a new run on the same PR.
+- **PLANNED**: `plan-gate` posts the exact command and the run waits at the
+  environment. To authorize:
+  1. Review spec/plan and post on the issue: `/agent approve <head SHA> <plan SHA-256>`.
+  2. Approve the pending `implementation-approval` deployment in the run.
 
-When the Planner reports PLANNED, the controller verifies schemas, saved byte
-hashes, current issue fields and main baseline, then waits in AWAITING_APPROVAL.
-The controller posts an exact `/agent approve <head SHA> <plan SHA-256>` command.
-After reviewing the documents, post that command on the originating issue as a
-repository writer. Its author, exact body and identity are rechecked independently.
-This works while the PR is still draft and survives automatic dismissal of PR
-reviews when implementation commits arrive. Editing/deleting the approval comment
-revokes it. Control commands are excluded from the requirement-comment digest;
-ordinary human comments still invalidate stale planning decisions.
+  `approve` re-checks that a writer posted that exact command, the PR head and
+  spec/plan bytes are unchanged, `main` has not moved and no new human comments
+  arrived since planning. Every post-planning worker re-verifies the comment
+  (author, permission, exact body) before starting; editing it revokes approval.
+  Rejecting the deployment ends the run as `agent:escalated`.
 
-An approving PR review for the exact head is also supported, but if branch
-protection automatically dismisses that review on new commits, use the explicit
-issue approval command instead. Do not relax branch protection for the lab.
-The approval dispatches the Implementer, whose `implementation-approval` environment is an additional gate.
-The worker rechecks everything after that gate opens. A label or generated file
-never grants implementation approval.
+## Implementation, CI and review
 
-Legacy planner handoffs can still validate against contract-v1. They must be
-replanned to add machine-readable execution_scope before implementation. Scope
-accepts exact paths and terminal directory/** prefixes; denied paths win.
-Approved spec, plan, issue snapshot and planner handoff bytes remain frozen.
-If main advances beyond the PR's ancestry, use GitHub's controlled branch-update
-operation before replanning. The controller blocks instead of merely claiming a
-new baseline while leaving the worker on an older tree.
+`iteration-1` runs the Implementer on the approved head. `implement-gate`
+validates `implementation-handoff.json` (schema, transition id, plan hash,
+baseline, passing local checks) and that new commits were published. `ci.yml`
+then runs **in the same run** on that exact remote head; any failing job stops
+the iteration. The Reviewer writes `review-handoff.json` as an artifact;
+`review-gate` validates layout, schema, identity, reviewed head and
+decision/finding consistency. The Reviewer may COMMENT or REQUEST_CHANGES, never
+APPROVE.
 
-## Publication, CI and review
+`REQUEST_CHANGES` triggers `iteration-2` with the findings as remediation
+input. A second `REQUEST_CHANGES` escalates. `PASS` sets
+`agent:ready-for-human-review`; humans own merge.
 
-Workers use dispatch inputs for issue/PR identity instead of assuming a
-pull_request event. A trusted pre-step validates the durable dispatch intent,
-workflow source SHA, run identity, expected remote head and human decisions
-before checking out the canonical PR head. Inputs are metadata; issue content
-is not prefetched. Duplicate runs of the same transition, including re-run jobs,
-are rejected. First run ownership is selected from Actions metadata.
+## Recovery
 
-Planner and Implementer make local commits and publish only through
-push-to-pull-request-branch targeted to the validated PR number. The fallback
-that creates another PR is disabled. The controller also checks the published
-diff; these post-publication scope checks are not a claim that the LLM's local
-file-editing tools constitute a filesystem sandbox.
+There is no durable state to repair: the workflow run *is* the state.
 
-Implementation completion records honest local checks, then the controller waits
-for CI on the final **remote** PR head. Signed publication can change commit SHAs;
-local Git hashes are not used as CI authority. CI must show successful build,
-backend and SonarCloud jobs. If bot-generated pushes need approval to run CI,
-approve the run in Actions; missing CI keeps the controller in WAITING_CI.
+| Situation | Action |
+|---|---|
+| Transient failure (runner, API, model) | **Re-run failed jobs** on the run |
+| Gate blocked (stale plan, moved head, edited approval) | Fix the cause, then `/agent plan` |
+| Want a fresh revision | `/agent plan` or manual dispatch (queued behind any active run for the issue) |
+| Abandon a waiting run | Reject the deployment or cancel the run |
 
-The Reviewer writes only `/tmp/gh-aw/review-handoff.json`, uploaded as the
-`agent-review` artifact and pinned to reviewed_head_sha. It may COMMENT or
-REQUEST_CHANGES, never APPROVE. It does not push evidence onto the branch it
-reviewed. The controller validates artifact layout/size/provenance and current
-head, and treats all artifact content as data. PASS is a human-review
-recommendation. One remediation attempt is allowed within approved paths;
-out-of-scope findings or a second rejection escalate.
-
-## Recovery and state
-
-`/agent reconcile` rechecks waiting CI or invalidates a stale review. The
-orchestrator can also be run manually with an issue number and action.
-No periodic polling or AI runs are scheduled.
-
-Dispatch intent is persisted **before** calling GitHub. If the dispatch response
-is lost, use `/agent recover`: it searches existing runs by transition ID and
-processes their completion. It does not blindly dispatch again. If no unique
-run exists because run history was deleted, a human repository writer can
-explicitly issue `/agent reset` (also available as the manual coordinator action).
-Reset queries all three worker workflows and refuses to proceed if any matching
-execution for that issue is not completed, if metadata is inconsistent, or if
-Actions evidence cannot be read completely. It is not an automatic stale timeout.
-
-Reset abandons the stored intent, invalidates approval/review evidence and returns
-the task to NEW. It preserves the canonical PR/branch, Git-backed audit history
-and processed event IDs, and records the abandoned transition and source SHA.
-It never cancels a run, dispatches an agent, reopens/closes a PR, changes a remote
-branch or grants implementation approval. A duplicate reset event is inert.
-This deliberately favors avoiding duplicate work over speculative retries.
-
-If the canonical PR was closed, reopen it before planning again, or explicitly
-adopt another open PR. Reset does not reverse the human's decision to close it.
-Update the selected PR branch with main if its ancestry is stale, then request
-fresh planning with `/agent plan`. Applying `agent-lab` again means start planning;
-it does not recover or abandon the previous transition.
-
-State history retains the latest 50 transitions and 100 event IDs. One active
-dispatch and the retained transition identity prevent duplicate completed-run
-callbacks from advancing the flow. Do not manually rerun worker jobs: use the
-controller so it can issue a new validated transition.
-
-The short controller runs serialize state writes independently from worker
-concurrency groups, avoiding approval-wait deadlocks. Events arriving after a
-worker or CI completes reconcile state from GitHub instead of an in-memory
-conversation. Explicit workflow_dispatch calls connect workers; labels are
-human entry points, not the inter-agent transport.
+Approval commands and unrelated comments never queue behind, or replace, a run
+waiting for approval (they get a unique concurrency group).
 
 ## Local checks
 
 ```bash
-python3 -m pip install -r scripts/requirements-agent-orchestration.txt
-python3 -m unittest discover -s scripts/tests -v
-python3 scripts/validate_agent_handoff.py 50
+gh aw compile agent-plan agent-implement agent-review   # regenerate locks after editing .md sources
+actionlint .github/workflows/agent-pipeline.yml .github/workflows/agent-iteration.yml .github/workflows/ci.yml
 ```
 
-The last command requires the issue's artifacts checked out locally. It verifies
-schema and byte hashes only; live freshness/approval checks remain separate.
-Unit tests use fake APIs: they never contact GitHub, mutate branches or start AI
-runs. Hosted MCP, environment protection and gh-aw-generated publication are
-integration checks to perform after compilation.
+## Migration from the Python controller
 
-## Diagnosing native MCP exposure and missed callbacks
-
-Run 41375187898 connected to GitHub MCP successfully, and the backend advertised
-issue_read. Its Copilot model-facing tool fingerprint nevertheless contained
-only local tools and safeoutputs MCP tools, with no GitHub tools. This isolates
-the failure to the native tool-exposure/selection boundary rather than issue
-permissions, Spec Kit, hashing or PR publication. Backend connectivity alone is
-not proof of the model's available tool set.
-
-Profiles now include concrete CLI-native names such as github-issue_read in
-addition to the cross-host github/* selectors, matching the workflow's existing
-read allowlist. This is a targeted exposure correction; its success still needs
-a hosted trace showing actual issue_read get/get_comments calls. It does not
-enable CLI fallback, all-tools wildcards, broader GitHub permissions, new MCP
-servers or additional shell commands. The CLI-ignored applyTo field was removed;
-planning-file scope remains explicit in the profile and safe-output allowlist.
-
-The same run also exposed an independent coordinator bug: run.name contained
-the evaluated run-name, not Planner stage, and the fixed-name workflow_run
-filter never activated a callback. The controller now selects both static names
-and evaluated worker run-name patterns, plus the CI name variants. It excludes
-its own name and independently admits only the three worker paths or ci.yml. Code verifies the
-producer path, event, branch, source SHA and durable transition title without
-using the mutable display name as workflow identity. The controller's own path
-is excluded from the privileged job as well. Failed known workers release their
-lease without trusting missing artifacts; duplicate callbacks stay inert.
-
-After installing the correction, an already-stuck transition requires a human
-`/agent recover` command when its run still exists, or an explicit `/agent reset`
-when deleted run history makes recovery impossible. Neither command reruns the
-worker. Before `/agent plan`, update the
-canonical PR branch with current main if its baseline has advanced. Neither the
-repair command nor a new hosted run is sent automatically by this patch.
-
-Only profiles, the plain Actions controller and Python tests/code changed for
-this repair; the gh-aw worker Markdown/lock pairs are unchanged. No gh-aw
-recompilation is needed solely for these profile/controller edits. Hosted tool
-exposure remains an integration check, not a result established by unit tests.
-
-Run 41377966022 demonstrated the orphaned-state case: its issue-label event tried
-to start planning while issue 50 still held transition
-38661ab445894ffe8b37c6331552e36b. The referenced old run was no longer readable
-(404) and canonical PR 74 was closed. The rejection came from the persisted lease
-gate, not the job's YAML expression evaluator. The new reset route makes that
-operator recovery explicit without allowing a label event to discard live work.
+Removed: `scripts/*.py` and tests, `agent-orchestrator.yml`,
+`orchestration-state.schema.json`, `/agent adopt|recover|reset|reconcile`, the
+`agent-orchestration-state` branch and the controller's diff-vs-execution_scope
+check. The planner remains limited to `specs/**` and `.specify/feature.json` by
+gh-aw `allowed-files`, and the implementer by its safe-output allowlist. The
+`agent-orchestration-state` branch can be deleted manually after merge.

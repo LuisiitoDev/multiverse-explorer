@@ -114,11 +114,13 @@ jobs:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
           PR_NUMBER: ${{ inputs.pr_number }}
           START_HEAD_SHA: ${{ inputs.head_sha }}
+          PUBLISHED_HEAD_SHA: ${{ needs.implement.outputs.push_commit_sha }}
           TRANSITION_ID: ${{ needs.ids.outputs.implementer }}
           APPROVAL_JSON: ${{ inputs.approval_json }}
         with:
           script: |
             const fs = require('fs');
+            const crypto = require('crypto');
             const deps = `${process.env.RUNNER_TEMP}/agent-deps/node_modules`;
             const Ajv = require(`${deps}/ajv/dist/2020`); const formats = require(`${deps}/ajv-formats`);
             const { owner, repo } = context.repo;
@@ -126,6 +128,20 @@ jobs:
             const issue = Number(env.ISSUE_NUMBER);
             const approval = JSON.parse(env.APPROVAL_JSON);
             const fail = (message) => { throw new Error(message); };
+            const sha256 = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
+            const file = async (path, ref) => {
+              const { data } = await github.rest.repos.getContent({ owner, repo, path, ref });
+              if (Array.isArray(data) || data.type !== 'file' || data.encoding !== 'base64' || data.size > 2 * 1024 * 1024)
+                fail(`Not a bounded regular file: ${path}`);
+              return Buffer.from(data.content, 'base64');
+            };
+            const pathRule = (p) => {
+              if (typeof p !== 'string' || !p || p.includes('\\') ||
+                  p.split('/').some((part) => ['', '.', '..'].includes(part)) ||
+                  /[*?\[]/.test(p.endsWith('/**') ? p.slice(0, -3) : p)) fail(`Invalid scope path: ${p}`);
+              return p;
+            };
+            const matches = (p, rule) => rule.endsWith('/**') ? p.startsWith(rule.slice(0, -2)) : p === rule;
             const validate = (doc, name) => {
               const ajv = new (Ajv.default || Ajv)({ allErrors: true, strict: false });
               (formats.default || formats)(ajv);
@@ -133,18 +149,52 @@ jobs:
               if (!check(doc)) fail(`Invalid ${name}: ${ajv.errorsText(check.errors)}`);
             };
             try {
+              if (!/^[0-9a-f]{40}$/.test(env.PUBLISHED_HEAD_SHA || ''))
+                fail('Safe-output publication was skipped or failed: no push_commit_sha returned. Inspect implement / safe_outputs; local commits and queued intents are not publication evidence.');
               const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: Number(env.PR_NUMBER) });
               const head = pr.head.sha;
+              if (pr.state !== 'open' || pr.base.ref !== 'main' ||
+                  pr.head.repo?.full_name.toLowerCase() !== `${owner}/${repo}`.toLowerCase() ||
+                  !new RegExp(`^agent-plan/issue-${issue}(?:-[A-Za-z0-9_-]+)?$`).test(pr.head.ref)) fail('Canonical PR identity changed');
               const { data: ancestry } = await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${env.START_HEAD_SHA}...${head}` });
               if (pr.state !== 'open' || ancestry.status !== 'ahead') fail('Implementer did not publish new commits on the canonical PR');
-              const { data: content } = await github.rest.repos.getContent({ owner, repo, ref: head,
-                path: `specs/issue-${issue}/implementation-handoff.json` });
-              const report = JSON.parse(Buffer.from(content.content, 'base64').toString('utf8'));
+              if (head !== env.PUBLISHED_HEAD_SHA) {
+                const { data: extra } = await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${env.PUBLISHED_HEAD_SHA}...${head}` });
+                // gh-aw may add an empty commit to trigger CI. No additional file
+                // change may sneak in after the verified publisher revision.
+                if (extra.status !== 'ahead' || !Array.isArray(extra.files) || extra.files.length)
+                  fail('PR content changed after safe-output publication');
+              }
+              const approvedRaw = await file(`specs/issue-${issue}/planner-handoff.json`, approval.approved_head_sha);
+              const handoff = JSON.parse(approvedRaw);
+              validate(handoff, 'contract-v1.schema.json');
+              if (handoff.status !== 'PLANNED' || handoff.issue.number !== issue || !handoff.execution_scope ||
+                  handoff.plan.plan_sha256 !== approval.plan_sha256 || handoff.spec.spec_sha256 !== approval.spec_sha256 ||
+                  handoff.base_commit !== approval.base_commit) fail('Approved planner scope/identity mismatch');
+              if (!approvedRaw.equals(await file(`specs/issue-${issue}/planner-handoff.json`, head))) fail('Approved handoff changed');
+              for (const [kind, hash] of [['spec', approval.spec_sha256], ['plan', approval.plan_sha256]]) {
+                if (sha256(await file(`specs/issue-${issue}/${kind}.md`, head)) !== hash) fail(`Approved ${kind} changed`);
+              }
+              const scope = handoff.execution_scope;
+              for (const rule of [...scope.allowed_paths, ...scope.denied_paths]) pathRule(rule);
+              if (!Array.isArray(ancestry.files) || ancestry.files.length >= 300) fail('Incomplete implementation diff');
+              const metadata = [`specs/issue-${issue}/tasks.md`, `specs/issue-${issue}/implementation-handoff.json`];
+              for (const changed of ancestry.files) {
+                for (const p of new Set([changed.filename, changed.previous_filename || changed.filename])) {
+                  pathRule(p);
+                  if (!metadata.includes(p) && (scope.denied_paths.some((r) => matches(p, r)) ||
+                      !scope.allowed_paths.some((r) => matches(p, r)))) fail(`Published path outside approved scope: ${p}`);
+                }
+              }
+              const report = JSON.parse(await file(`specs/issue-${issue}/implementation-handoff.json`, head));
               validate(report, 'implementation.schema.json');
               if (report.transition_id !== env.TRANSITION_ID || report.issue_number !== issue || report.pr_number !== pr.number ||
                   report.plan_sha256 !== approval.plan_sha256 || report.base_commit !== approval.base_commit)
                 fail('Implementation report identity does not match this iteration');
-              if (report.status !== 'IMPLEMENTED') fail(`Implementer reported ${report.status}`);
+              if (report.status !== 'IMPLEMENTED') {
+                const missing = report.local_validation.filter((check) => check.result !== 'passed').map((check) => check.command);
+                fail(`Implementer reported ${report.status}; pending checks: ${missing.join(', ') || 'see deviations'}. Publication is not completion; CI/review remains blocked.`);
+              }
               if (!report.local_validation.length || !report.local_validation.every((check) => check.result === 'passed'))
                 fail('Implementation lacks passing local validation evidence');
               core.setOutput('head_sha', head);

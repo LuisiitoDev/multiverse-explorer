@@ -285,6 +285,17 @@ jobs:
               const status = handoff.status;
               if (status === 'PLANNED') {
                 if (!handoff.execution_scope) fail('Replan to produce machine-readable execution_scope');
+                // Check the plan against the trusted publisher envelope before
+                // approving/starting an implementation that cannot be published.
+                const envelope = JSON.parse(fs.readFileSync('docs/agent-handoffs/publication-scope.json', 'utf8')).allowed_files;
+                for (const p of [...handoff.execution_scope.allowed_paths, ...handoff.execution_scope.denied_paths]) {
+                  if (typeof p !== 'string' || !p || p.includes('\\') ||
+                      p.split('/').some((part) => ['', '.', '..'].includes(part)) ||
+                      /[*?\[]/.test(p.endsWith('/**') ? p.slice(0, -3) : p)) fail(`Invalid execution scope: ${p}`);
+                }
+                const unsupported = handoff.execution_scope.allowed_paths.filter((p) =>
+                  !envelope.some((r) => r.endsWith('/**') ? p.startsWith(r.slice(0, -2)) : p === r));
+                if (unsupported.length) fail(`Plan includes paths outside publication capability: ${unsupported.join(', ')}. Update the reviewed publisher policy before implementation.`);
                 const { data: mainRef } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
                 if (handoff.base_commit !== mainRef.object.sha) fail('Planning baseline differs from current main; replan');
                 if (!(await descends(handoff.base_commit, head))) fail('Current main is not in the PR history; update the branch');

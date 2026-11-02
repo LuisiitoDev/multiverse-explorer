@@ -123,6 +123,9 @@ safe-outputs:
     - backend/**
     - infra/**
     - .github/workflows/**
+    - THIRD_PARTY_NOTICES.md
+    - docs/blue-green-deployment.md
+    - docs/canary-deployment.md
     fallback-as-pull-request: false
   update-pull-request:
     target: ${{ inputs.pr_number }}
@@ -199,5 +202,10 @@ local_validation and deviations. Local validation is not CI verification.
 Commit only approved changes on the existing branch and publish exclusively
 through `push_to_pull_request_branch`. Never open another PR, git push, approve,
 merge or deploy. Use Related issue until implementation has been human-reviewed.
+The push tool records an intent; its immediate success response is not evidence
+that the later safe-output job applied it. Report "publication requested" until
+the workflow verifies a returned remote push SHA. Do not claim the PR was updated
+from a local commit or a queued safe-output response. Never remove required
+files from the approved plan merely to make a rejected publication pass.
 Return IMPLEMENTED only when local required checks pass; otherwise PARTIAL or
 BLOCKED with the failed/missing evidence, and report incomplete as appropriate.

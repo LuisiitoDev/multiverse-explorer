@@ -135,7 +135,8 @@ waiting for approval (they get a unique concurrency group).
 ```bash
 gh aw compile agent-plan agent-implement agent-review   # regenerate locks after editing .md sources
 actionlint .github/workflows/agent-pipeline.yml .github/workflows/agent-iteration.yml .github/workflows/ci.yml
-node --test tests/*.test.cjs
+npm install --no-save --no-audit --no-fund --ignore-scripts --prefix /tmp/agent-gate-test-deps ajv@8.17.1 ajv-formats@3.0.1
+AGENT_TEST_NODE_MODULES=/tmp/agent-gate-test-deps/node_modules CHECK_COMPILED_LOCK=1 node --test tests/*.test.cjs
 ```
 
 ### Implementer shell permissions
@@ -155,6 +156,36 @@ supported diagnostics and instructions to distinguish an optional probe from
 a required task operation. A real denial must never be bypassed. Recompile
 agent-implement after changing its Markdown; local policy/compiled-flag checks
 do not establish a successful hosted implementation or publication.
+
+### Publication and implementation completion
+
+Run 41481004308 reached the Implementer, but its safe-output push was skipped:
+THIRD_PARTY_NOTICES.md, docs/blue-green-deployment.md and docs/canary-deployment.md
+were explicitly approved in the plan but absent from the publisher's allowed
+files. The remote PR head stayed unchanged; implement-gate then correctly
+refused to advance. These three exact paths are now included, without granting
+all docs or changing protected-file handling, workflow permissions or tokens.
+
+`publication-scope.json` describes the static allowed-files envelope. Regression
+tests require it to match the authored safe output. Plan-gate checks planned
+paths against that envelope before approval/implementation. This is a path
+compatibility check, not proof of credentials, protected-file acceptance or a
+successful push; those controls still apply during publication.
+
+The immediate push-tool response queues an intent. Only the reusable workflow's
+`push_commit_sha` output, an open canonical PR and its actual remote history
+prove publication. Implement-gate distinguishes an absent publisher result,
+remote content drift, unapproved paths/renames and invalid/partial handoffs.
+It validates the actual diff against the immutable approved execution_scope,
+including deny precedence. Only this issue's tasks.md and implementation-handoff.json
+are metadata exceptions. An extra empty commit used to trigger CI is allowed;
+additional file changes after the publisher revision are not.
+
+The same incident's Implementer reported PARTIAL: NASA texture and some checks
+were still missing. Fixing publication does not complete that application work.
+PARTIAL/BLOCKED or missing/failed validation continues to stop CI/review and is
+reported with pending checks. The pipeline never treats a local commit, queued
+output or partial implementation as a completed publication/implementation.
 
 ## Migration from the Python controller
 

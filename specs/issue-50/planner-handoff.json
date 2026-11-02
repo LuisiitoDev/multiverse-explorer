@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "status": "PLANNED",
+  "source": "planner",
+  "target": "human",
+  "created_at": "2026-11-02T00:50:07Z",
+  "issue": {
+    "number": 50,
+    "url": "https://github.com/LuisiitoDev/multiverse-explorer/issues/50",
+    "snapshot_sha256": "38ac27d3c7cc8775da5aee00823df7d2a766f68a692069127df340db92133f5d",
+    "fetched_at": "2026-11-02T00:50:07Z"
+  },
+  "base_commit": "345fd655fd1be2fa97d6679e2f8eb77ecaad4198",
+  "spec": {
+    "feature_directory": "specs/issue-50",
+    "spec_file": "specs/issue-50/spec.md",
+    "spec_sha256": "9b6d71effa2b6fd2fc3601174121ec5572d5438b6438ccc046e4bcafaeae090f"
+  },
+  "plan": {
+    "plan_file": "specs/issue-50/plan.md",
+    "plan_sha256": "f7f1d5f4267d724f49dce827c3911fcac96383d0aae114e6fce8a6ebc43d401a"
+  },
+  "requires_human_decision": [],
+  "notes": "Issue snapshot: specs/issue-50/issue-snapshot.json (number, title, body only). Freshness policy: verify the saved file's byte hash, then compare its three field values with a fresh MCP issue read; never compare against a hash of a differently serialized response. Recheck comment-based decisions separately. All human answers (runtime .env-style FEATURE_* flag, Container Apps, library/texture, canary deleted, workflow names, Bicep modules, appservice.bicep out of scope) are applied. Deviations: 'immediate' flag rollback is a no-build env flip creating a new revision (fast, not instant); SC-003/SC-007 tighten 'no bloat' and 'immediate rollback'. Not an approval: a human must review the exact spec/plan hashes."
+}

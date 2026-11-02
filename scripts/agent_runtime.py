@@ -22,7 +22,6 @@ from jsonschema import Draft202012Validator, FormatChecker
 STATE_BRANCH = "agent-orchestration-state"
 WORKFLOWS = {"planner": "agent-plan.lock.yml", "implementer": "agent-implement.lock.yml",
              "reviewer": "agent-review.lock.yml"}
-NAMES = {"Planner stage": "planner", "Implementer stage": "implementer", "Reviewer stage": "reviewer"}
 MAX_BYTES = 2 * 1024 * 1024
 SHA = re.compile(r"^[0-9a-f]{40}$")
 TRANSITION = re.compile(r"^[0-9a-f]{32}$")

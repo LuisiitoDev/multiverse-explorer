@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "status": "PLANNED",
+  "status": "BLOCKED",
   "source": "planner",
   "target": "human",
-  "created_at": "2026-11-02T22:58:00Z",
+  "created_at": "2026-11-02T23:07:00Z",
   "issue": {
     "number": 50,
     "url": "https://github.com/LuisiitoDev/multiverse-explorer/issues/50",
     "snapshot_sha256": "8796d3acefdd7c56c076f9bf5dd3452603c084a76b5a0251c2c29a034f75d97c",
-    "fetched_at": "2026-11-02T22:57:15Z"
+    "fetched_at": "2026-11-02T23:05:30Z"
   },
   "base_commit": "fb5b3290f578d6c77d924c215c7b06724847851d",
   "spec": {
@@ -18,10 +18,12 @@
   },
   "plan": {
     "plan_file": "specs/issue-50/plan.md",
-    "plan_sha256": "473bda6a6b3c36d561f48c579bc4eb23c09a49e298dc8607e33d7b4782b435fe"
+    "plan_sha256": "735e0a9580f5d358bf88e114962f503a0602e42bb412c3a5e646eba1324ccccc"
   },
-  "requires_human_decision": [],
-  "notes": "Issue snapshot saved at specs/issue-50/issue-snapshot.json (number, title, body). Requester decisions from issue comments applied: runtime .env-style FEATURE_* flags served as /config.json, Azure Container Apps, three+r3f+drei with NASA Blue Marble, canary deleted and replaced by Blue/Green workflows (cd.yml, bluegreen-swap.yml, set-feature-flag.yml), Bicep modules. Criteria tightened beyond issue text: measurable bundle-size criterion (SC-004), fail-closed flag, reduced-motion, texture-failure handling. infra/appservice.bicep exists but is unrelated and denied. PLANNED is not approval; a human must review the exact spec/plan hashes and scope.",
+  "requires_human_decision": [
+    "Manual tasks M1-M4 in specs/issue-50/plan.md section 4a: a human must rewrite .github/workflows/cd.yml, create bluegreen-swap.yml and set-feature-flag.yml, and update infra.yml (workflow changes are human-only), validate them, then trigger a fresh planning run to verify before implementation."
+  ],
+  "notes": "Issue snapshot saved at specs/issue-50/issue-snapshot.json (number, title, body). Requester decisions from issue comments applied: runtime .env-style FEATURE_* flags served as /config.json, Azure Container Apps, three+r3f+drei with NASA Blue Marble, canary deleted and replaced by Blue/Green workflows (cd.yml, bluegreen-swap.yml, set-feature-flag.yml), Bicep modules. Criteria tightened beyond issue text: measurable bundle-size criterion (SC-004), fail-closed flag, reduced-motion, texture-failure handling. infra/appservice.bicep exists but is unrelated and denied. Changes under .github/workflows/ are human-only, so they were removed from allowed_paths and recorded as manual tasks M1-M4; status BLOCKED until applied and verified by a fresh plan. BLOCKED is not approval; PLANNED is not approval; a human must review the exact spec/plan hashes and scope.",
   "execution_scope": {
     "allowed_paths": [
       "frontend/src/**",
@@ -33,10 +35,6 @@
       "frontend/package-lock.json",
       "infra/main.bicep",
       "infra/modules/**",
-      ".github/workflows/cd.yml",
-      ".github/workflows/infra.yml",
-      ".github/workflows/bluegreen-swap.yml",
-      ".github/workflows/set-feature-flag.yml",
       "docs/blue-green-deployment.md",
       "docs/canary-deployment.md",
       "THIRD_PARTY_NOTICES.md"
@@ -48,17 +46,7 @@
       ".github/skills/**",
       ".specify/**",
       "docs/agent-handoffs/**",
-      ".github/workflows/agent-implement.md",
-      ".github/workflows/agent-implement.lock.yml",
-      ".github/workflows/agent-iteration.yml",
-      ".github/workflows/agent-pipeline.yml",
-      ".github/workflows/agent-plan.md",
-      ".github/workflows/agent-plan.lock.yml",
-      ".github/workflows/agent-review.md",
-      ".github/workflows/agent-review.lock.yml",
-      ".github/workflows/ci.yml",
-      ".github/workflows/copilot-setup-steps.yml",
-      ".github/workflows/shared/**",
+      ".github/workflows/**",
       "specs/**"
     ]
   }

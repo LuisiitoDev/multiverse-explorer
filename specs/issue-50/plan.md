@@ -1,7 +1,7 @@
 # Implementation Plan: 3D Multiverse Globe Map (issue #50)
 
 **Spec**: [spec.md](./spec.md) — acceptance criteria live in its *Success Criteria* and *Acceptance Scenarios* sections; they are not restated here.
-**Base**: `fb5b3290f578d6c77d924c215c7b06724847851d` (main). **Status**: PLANNED — ready for human review, **not approved**.
+**Base**: `fb5b3290f578d6c77d924c215c7b06724847851d` (main). **Status**: BLOCKED — required `.github/workflows/` changes are human-only manual tasks (see §4a); **not approved**.
 
 ## 1. Verified facts (observed in repo at base)
 
@@ -45,7 +45,8 @@ Planner recommendations (assumptions, reviewable): 2D/3D toggle (segmented contr
 - Blue/Green via revision labels `blue` and `green`; production traffic weights 100/0 on labels; swap = move 100% weight between labels. `infra/appservice.bicep` untouched.
 - Validate with `az bicep build` (and `az deployment group validate` in workflow).
 
-### Workflows
+### Workflows (human-only; see §4a)
+Agents do not edit `.github/workflows/**`. The designs below are manual tasks for a human; the agent's Bicep/Docker/frontend work exposes what they need (labels `blue`/`green`, `FEATURE_*` env params, `/config.json`).
 - `cd.yml` (rewritten): build/push image, determine inactive label, deploy new revision to it (flag env unchanged), smoke-test inactive label URL (including `/config.json`), **stop before swap**.
 - `bluegreen-swap.yml` (new, `workflow_dispatch`, `production` environment approval): swaps 100% traffic between labels; rerun = rollback.
 - `set-feature-flag.yml` (new, `workflow_dispatch`): sets `FEATURE_GLOBE_3D=true|false` on the app (new revision keeps the active label), verifies `/config.json`.
@@ -54,14 +55,25 @@ Planner recommendations (assumptions, reviewable): 2D/3D toggle (segmented contr
 
 ## 4. Allowed and denied scope
 
-**Allowed paths** (implementation stage): `frontend/src/**`, `frontend/public/**`, `frontend/docker/**`, `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/package.json`, `frontend/package-lock.json`, `infra/main.bicep`, `infra/modules/**`, `.github/workflows/cd.yml`, `.github/workflows/infra.yml`, `.github/workflows/bluegreen-swap.yml`, `.github/workflows/set-feature-flag.yml`, `docs/blue-green-deployment.md`, `docs/canary-deployment.md` (deletion), `THIRD_PARTY_NOTICES.md`.
+**Allowed paths** (implementation stage): `frontend/src/**`, `frontend/public/**`, `frontend/docker/**`, `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/package.json`, `frontend/package-lock.json`, `infra/main.bicep`, `infra/modules/**`, `docs/blue-green-deployment.md`, `docs/canary-deployment.md` (deletion), `THIRD_PARTY_NOTICES.md`.
 
-**Denied paths**: `backend/**`, `infra/appservice.bicep`, `.github/agents/**`, `.github/skills/**`, `.specify/**`, `docs/agent-handoffs/**`, `.github/workflows/agent-*`, `.github/workflows/ci.yml`, `.github/workflows/copilot-setup-steps.yml`, `.github/workflows/shared/**`, `specs/**`. No secrets, no new repo/environment variable values committed; no production deployment or merge by an agent.
+**Denied paths**: `backend/**`, `infra/appservice.bicep`, `.github/agents/**`, `.github/skills/**`, `.specify/**`, `docs/agent-handoffs/**`, `.github/workflows/**` (human-only: `cd.yml`, `infra.yml`, `bluegreen-swap.yml`, `set-feature-flag.yml`, `ci.yml`, `agent-*`, `copilot-setup-steps.yml`, `shared/**`), `specs/**`.
+
+### 4a. Manual tasks (human-only, `.github/workflows/`)
+
+| ID | Change | Validation |
+|----|--------|------------|
+| M1 | Rewrite `.github/workflows/cd.yml`: deploy to inactive label + smoke test (incl. `/config.json`), no swap, canary removed | Dispatch run; inactive label URL returns 200 with flag off |
+| M2 | Create `.github/workflows/bluegreen-swap.yml` (dispatch, `production` approval, swap 100% between labels) | Swap, then swap again restores the previous revision |
+| M3 | Create `.github/workflows/set-feature-flag.yml` (dispatch, sets `FEATURE_GLOBE_3D`, verifies `/config.json`) | Flip on/off; invalid value yields off |
+| M4 | Update `.github/workflows/infra.yml` (bicep build of `infra/main.bicep` + modules, new params; OIDC only) | `az bicep build --file infra/main.bicep` passes in the workflow |
+
+Implementation must not start until a fresh planning run verifies M1–M4 are applied and validated. Until then the agent-owned frontend/Docker/Bicep/docs work is not authorized. No secrets, no new repo/environment variable values committed; no production deployment or merge by an agent.
 
 ## 5. Dependencies, tests, risks, rollback
 
 - New npm deps: `three`, `@react-three/fiber`, `@react-three/drei` (and `@types/three`). Check React version compatibility with r3f; pin versions.
-- Validation: `npm run lint`, `npm test`, `npm run build` (check separate lazy chunk), `az bicep build --file infra/main.bicep`, actionlint-style review of workflows, secret scan.
+- Validation: `npm run lint`, `npm test`, `npm run build` (check separate lazy chunk), `az bicep build --file infra/main.bicep`, secret scan; workflow validation is manual (M1–M4).
 - Risks: (1) Container Apps env change creates a new revision, so the flag flip is not instant (accepted, D5); (2) revision labels require `Multiple` mode and label/traffic handling is easy to misconfigure — the first rollout needs a documented bootstrap; (3) `/config.json` must never be cached; (4) texture size on mobile; (5) r3f with the project's `latest` React pinning; (6) deleting canary removes the existing release path — replacement must land in the same PR; (7) jsdom has no WebGL, so tests mock the canvas.
 - Rollback: feature → set flag off via workflow; deployment → rerun swap; code → revert PR (flag defaults off).
 
@@ -73,4 +85,5 @@ Planner recommendations (assumptions, reviewable): 2D/3D toggle (segmented contr
 
 ## 7. Open human decisions
 
-None. Review items: confirm the recommendations in section 2 and the scope in section 4.
+- **H1**: A human must apply and validate manual tasks M1–M4 (§4a) before implementation; then re-run planning to verify.
+- Review items: confirm the recommendations in section 2 and the scope in section 4.

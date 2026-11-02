@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "status": "PLANNED",
+  "source": "planner",
+  "target": "human",
+  "created_at": "2026-11-02T00:30:14Z",
+  "issue": {
+    "number": 50,
+    "url": "https://github.com/LuisiitoDev/multiverse-explorer/issues/50",
+    "snapshot_sha256": "8796d3acefdd7c56c076f9bf5dd3452603c084a76b5a0251c2c29a034f75d97c",
+    "fetched_at": "2026-11-02T00:30:14Z"
+  },
+  "base_commit": "345fd655fd1be2fa97d6679e2f8eb77ecaad4198",
+  "spec": {
+    "feature_directory": "specs/issue-50",
+    "spec_file": "specs/issue-50/spec.md",
+    "spec_sha256": "1bd0557600bc5896ae6a36ceef5ecccc630ef527089ffbaea34a2f55886964fb"
+  },
+  "plan": {
+    "plan_file": "specs/issue-50/plan.md",
+    "plan_sha256": "a126b7b86b8f5bc92d8acc121c9672bea72f6e430ffc65edb98e3ef9f89365df"
+  },
+  "requires_human_decision": [],
+  "notes": "Not an approval; a human must review the exact spec/plan hashes and scope. Snapshot: specs/issue-50/issue-snapshot.json (number, title, body only). Freshness policy: verify the saved file's byte hash, then compare its three field values with a fresh MCP issue read; recheck comment decisions separately. Comment decisions applied: runtime flag source = .env file; Blue/Green = Azure Container Apps; 3D library + NASA texture confirmed. Please confirm plan assumption A1: .env-style variables are read at container start (rendered to /config.json) so the flag flips without a rebuild, since build-time VITE_ flags cannot meet the issue's criterion. Also confirm A4 (keep canary workflow alongside Blue/Green). Criteria added or reworded beyond the issue text: reduced-motion handling, keyboard access/list alternative in fallback, unparseable flag treated as off, SC-008 flag flip without new image, SC-004 verifiable lazy loading, rollback exercised in a non-production run. Scope narrowed: infra/appservice.bicep untouched (Container Apps chosen)."
+}

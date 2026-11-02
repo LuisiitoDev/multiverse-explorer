@@ -66,22 +66,43 @@ steps:
       const baseCommit = mainRef.object.sha;
       if (!(await descends(baseCommit, pr.head.sha))) fail('Canonical PR does not include current main; update its branch first');
 
-      // Hash-bound human approval is re-verified independently inside every
-      // post-planning worker. The environment gate alone never authorizes work.
+      // Independently re-check the native environment review and exact record
+      // in every post-planning worker. A local file or environment name alone
+      // never authorizes implementation.
       let approval = null;
       if (worker !== 'planner') {
         approval = JSON.parse(env.APPROVAL_JSON || 'null');
-        if (!approval || !approval.comment_id) fail('Hash-bound approval record missing');
-        const { data: comment } = await github.rest.issues.getComment({ owner, repo, comment_id: approval.comment_id });
-        const expected = `/agent approve ${approval.approved_head_sha} ${approval.plan_sha256}`;
-        if (comment.user.login !== approval.actor || comment.body !== approval.statement ||
-            comment.body.trim() !== expected || !comment.issue_url.endsWith(`/repos/${owner}/${repo}/issues/${issue}`) ||
-            approval.issue_number !== issue || approval.pr_number !== prNumber || approval.base_commit !== baseCommit)
-          fail('Approval comment changed, belongs elsewhere, or main moved after approval');
-        if (!(await isWriter(comment.user))) fail('Approval author lacks repository write permission');
+        if (!approval || approval.schema_version !== '1.0.0' ||
+            approval.workflow_run_id !== context.runId || !Number.isSafeInteger(approval.run_attempt) ||
+            approval.run_attempt < 1 || approval.run_attempt > Number(env.GITHUB_RUN_ATTEMPT) ||
+            approval.environment_name !== 'implementation-approval' || !Number.isSafeInteger(approval.environment_id) || approval.environment_id < 1 ||
+            approval.issue_number !== issue || approval.pr_number !== prNumber || approval.base_commit !== baseCommit ||
+            !/^[0-9a-f]{40}$/.test(approval.approved_head_sha) ||
+            !/^[0-9a-f]{64}$/.test(approval.spec_sha256) || !/^[0-9a-f]{64}$/.test(approval.plan_sha256) ||
+            !/^[0-9a-f]{64}$/.test(approval.comments_sha256)) fail('Native approval record missing, stale or belongs to another run');
+        const { data: reviews } = await github.request('GET /repos/{owner}/{repo}/actions/runs/{run_id}/approvals',
+          { owner, repo, run_id: context.runId });
+        const matching = reviews.filter((r) => r.environments.some((e) =>
+          e.id === approval.environment_id && e.name === approval.environment_name));
+        if (matching.some((r) => r.state === 'rejected')) fail('Implementation environment approval was rejected');
+        const review = matching.find((r) => r.state === 'approved' && r.user.login === approval.actor &&
+          (r.comment || 'Approved implementation-approval in GitHub Actions') === approval.statement);
+        if (!review || !(await isWriter(review.user))) fail('Native approval is absent or author lacks repository write permission');
+        const { data: current } = await github.rest.issues.get({ owner, repo, issue_number: issue });
+        const snapshotBytes = await file(`specs/issue-${issue}/issue-snapshot.json`, approval.approved_head_sha);
+        if (!snapshotBytes.equals(await file(`specs/issue-${issue}/issue-snapshot.json`, pr.head.sha))) fail('Issue snapshot changed after approval');
+        const snapshot = JSON.parse(snapshotBytes.toString('utf8'));
+        if (current.state !== 'open' || current.pull_request || snapshot.number !== current.number ||
+            snapshot.title !== current.title || snapshot.body !== current.body) fail('Issue changed after planning');
+        const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue, per_page: 100 });
+        const CONTROL = /^\/agent (?:plan|approve [0-9a-f]{40} [0-9a-f]{64})$/;
+        const human = comments.filter((c) => c.user.type === 'User' && !CONTROL.test(c.body.trim()))
+          .map((c) => ({ id: c.id, updated_at: c.updated_at, body: c.body }));
+        if (sha256(JSON.stringify(human)) !== approval.comments_sha256) fail('Human decisions changed after approval');
         if (!(await descends(approval.approved_head_sha, pr.head.sha))) fail('PR head does not descend from the approved revision');
         for (const [kind, hash] of [['spec', approval.spec_sha256], ['plan', approval.plan_sha256]]) {
-          if (sha256(await file(`specs/issue-${issue}/${kind}.md`, pr.head.sha)) !== hash) fail(`${kind}.md changed after approval`);
+          if (sha256(await file(`specs/issue-${issue}/${kind}.md`, approval.approved_head_sha)) !== hash ||
+              sha256(await file(`specs/issue-${issue}/${kind}.md`, pr.head.sha)) !== hash) fail(`${kind}.md changed after approval`);
         }
       }
 

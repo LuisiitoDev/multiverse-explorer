@@ -115,13 +115,14 @@ jobs:
               if (candidates.length === 1) {
                 prNumber = candidates[0].number;
               } else {
-                // Bootstrap is fail-closed: never delete or recreate an existing branch.
-                const branch = `agent-plan/issue-${issue}`;
+                // Keep old closed/merged attempts intact. A leftover branch is not
+                // an open PR and must not prevent a fresh attempt.
+                let branch = `agent-plan/issue-${issue}`;
                 const existing = await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }).catch((error) => {
                   if (error.status === 404) return null;
                   throw error;
                 });
-                if (existing) fail(`Branch ${branch} exists without an open canonical PR; reopen or inspect it before retrying`);
+                if (existing) branch += `-run-${context.runId}-${process.env.GITHUB_RUN_ATTEMPT}`;
                 await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: main });
                 // A PR needs a non-empty diff; this data-only seed identifies the task.
                 await github.rest.repos.createOrUpdateFileContents({ owner, repo, branch,
@@ -296,9 +297,9 @@ jobs:
                 for (const name of labels) await github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name });
                 await github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['agent:awaiting-approval'] });
                 await github.rest.issues.createComment({ owner, repo, issue_number: issue, body:
-                  `<!-- agent-pipeline -->\nPlanner: **PLANNED** on PR #${pr.number}. To authorize this exact revision:\n\n` +
-                  `1. Review the spec/plan, then post this comment on this issue:\n\n   \`/agent approve ${head} ${handoff.plan.plan_sha256}\`\n\n` +
-                  `2. Approve the pending \`implementation-approval\` deployment in [this run](${runUrl}).` });
+                  `<!-- agent-pipeline -->\nPlanner: **PLANNED** on PR #${pr.number}. Review this exact revision:\n\n` +
+                  `- Head: \`${head}\`\n- Spec SHA-256: \`${handoff.spec.spec_sha256}\`\n- Plan SHA-256: \`${handoff.plan.plan_sha256}\`\n\n` +
+                  `Approve the pending \`implementation-approval\` deployment in [this run](${runUrl}) to continue. No issue command is required.` });
               }
               core.setOutput('status', status);
               core.setOutput('head_sha', head);
@@ -307,7 +308,7 @@ jobs:
               core.setFailed(error.message);
             }
 
-  # ── 4. Human-in-the-loop gate: environment approval + hash-bound comment ──
+  # ── 4. Human-in-the-loop gate: native environment review, bound to this plan ──
   approve:
     needs: [route, plan-gate]
     if: needs.plan-gate.outputs.status == 'PLANNED'
@@ -315,6 +316,7 @@ jobs:
     timeout-minutes: 10
     environment: implementation-approval
     permissions:
+      actions: read
       contents: read
       issues: write
       pull-requests: read
@@ -322,7 +324,7 @@ jobs:
       approval_json: ${{ steps.approval.outputs.approval_json }}
       blocker: ${{ steps.approval.outputs.blocker }}
     steps:
-      - name: Verify hash-bound approval comment
+      - name: Verify native environment approval
         id: approval
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -356,20 +358,30 @@ jobs:
                 .map((c) => ({ id: c.id, updated_at: c.updated_at, body: c.body }));
               if (sha256(JSON.stringify(human)) !== env.COMMENTS_SHA256) fail('Human decisions changed after planning; replan');
 
-              // The environment gate is necessary but not sufficient: a repository
-              // writer must also bind the approval to the exact head and plan hash.
-              const expected = `/agent approve ${env.HEAD_SHA} ${env.PLAN_SHA256}`;
+              // This job can start only after the protected environment gate.
+              // Independently read its native review; no second issue command.
+              const { data: reviews } = await github.request('GET /repos/{owner}/{repo}/actions/runs/{run_id}/approvals',
+                { owner, repo, run_id: context.runId });
+              const matching = reviews.filter((r) => r.environments.some((e) => e.name === 'implementation-approval'));
+              if (matching.some((r) => r.state === 'rejected')) fail('Implementation environment approval was rejected');
               let approval = null;
-              for (const comment of comments.filter((c) => c.body.trim() === expected).reverse()) {
-                if (comment.user.type !== 'User') continue;
-                const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: comment.user.login });
+              for (const review of matching.filter((r) => r.state === 'approved').reverse()) {
+                if (review.user.type !== 'User') continue;
+                const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: review.user.login });
                 if (!(['admin', 'maintain', 'write'].includes(permission.role_name) || ['admin', 'write'].includes(permission.permission))) continue;
-                approval = { schema_version: '1.0.0', issue_number: issue, pr_number: pr.number, actor: comment.user.login,
-                  comment_id: comment.id, statement: comment.body, approved_head_sha: env.HEAD_SHA,
-                  spec_sha256: env.SPEC_SHA256, plan_sha256: env.PLAN_SHA256, base_commit: env.BASE_COMMIT, approved_at: comment.created_at };
+                const environment = review.environments.find((e) => e.name === 'implementation-approval');
+                approval = { schema_version: '1.0.0', issue_number: issue, pr_number: pr.number, actor: review.user.login,
+                  workflow_run_id: context.runId, run_attempt: Number(env.GITHUB_RUN_ATTEMPT),
+                  environment_name: environment.name, environment_id: environment.id,
+                  statement: review.comment || 'Approved implementation-approval in GitHub Actions',
+                  approved_head_sha: env.HEAD_SHA, spec_sha256: env.SPEC_SHA256, plan_sha256: env.PLAN_SHA256,
+                  base_commit: env.BASE_COMMIT, comments_sha256: env.COMMENTS_SHA256,
+                  // GitHub's review-history response has no approval timestamp.
+                  // This is the time this trusted gate verified the native review.
+                  approved_at: new Date().toISOString() };
                 break;
               }
-              if (!approval) fail(`No repository writer posted \`${expected}\` before the environment was approved`);
+              if (!approval) fail('No human repository writer approved implementation-approval for this workflow run');
               core.setOutput('approval_json', JSON.stringify(approval));
             } catch (error) {
               core.setOutput('blocker', String(error.message).slice(0, 1000));

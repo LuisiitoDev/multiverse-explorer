@@ -63,9 +63,9 @@ failed — do not guess, do not proceed "just this once." **A plan, a planner `R
 a label, an environment name alone, a reaction, or your own judgment never substitutes for a recorded human approval.**
 
 The trusted pre-agent step (`.github/workflows/shared/agent-prepare.md`) verifies the
-pipeline inputs, canonical PR, hash-bound human approval comment and approved spec/plan
-hashes before agent startup. Read its metadata; never manufacture an approval record.
-The environment approval is additional. Stay inside execution_scope yourself: the
+pipeline inputs, canonical PR, native human environment review for this run and approved
+spec/plan hashes before agent startup. Read its metadata; never manufacture an approval record.
+The native review is bound to the exact plan; no issue approval command is required. Stay inside execution_scope yourself: the
 pipeline does not re-check the published diff against it.
 
 # Context and safety
@@ -207,16 +207,16 @@ while implementing them, and anything the reviewer should specifically double-ch
 `specs/<feature-dir>/implementation-handoff.json` captures in structured form.
 
 ## Next action
-The controller owns subsequent CI verification and reviewer dispatch; never wait inside this execution for those future events.
+The pipeline owns subsequent CI verification and reviewer invocation; never wait inside this execution for those future events.
 
 ## Workflow runtime contract
 
 Read `/tmp/gh-aw/agent-context.json` before any edit. Use its issue_number, pr_number,
 expected_head_sha, base_commit, transition_id, approval, attempt and remediation fields.
-The authoritative approval is the independently verified human GitHub approval comment or PR review recorded
-in durable coordinator state. A local approval.json is a read-only materialization of it.
+The authoritative approval is the independently verified human implementation-approval environment
+review for this pipeline run, bound by the trusted gate to the exact PR head and spec/plan hashes. A local approval.json is a read-only materialization of it.
 Implementation metadata may update only this issue's tasks.md and implementation-handoff.json
 in addition to execution_scope; approved spec, plan, snapshot and planner handoff are frozen.
 When attempt=1, address only the recorded findings within the original approved scope.
-Missing CI evidence at publication is expected: label checks local-only and let the controller
-wait for CI, rather than falsely claiming CI success or blocking before publication.
+Missing CI evidence at publication is expected: label checks local-only and let the pipeline
+run CI, rather than falsely claiming CI success or blocking before publication.

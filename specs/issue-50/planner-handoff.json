@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "status": "PLANNED",
+  "source": "planner",
+  "target": "human",
+  "created_at": "2026-11-02T00:41:29Z",
+  "issue": {
+    "number": 50,
+    "url": "https://github.com/LuisiitoDev/multiverse-explorer/issues/50",
+    "snapshot_sha256": "38ac27d3c7cc8775da5aee00823df7d2a766f68a692069127df340db92133f5d",
+    "fetched_at": "2026-11-02T00:41:29Z"
+  },
+  "base_commit": "345fd655fd1be2fa97d6679e2f8eb77ecaad4198",
+  "spec": {
+    "feature_directory": "specs/issue-50",
+    "spec_file": "specs/issue-50/spec.md",
+    "spec_sha256": "28ca860fdf9e37da4cfc86c4f0c262d0167c497ac15c4c1f9c717b4f6df7c905"
+  },
+  "plan": {
+    "plan_file": "specs/issue-50/plan.md",
+    "plan_sha256": "7979349bc73e5e3b67f00c3064b939fb64400f69b2fdd6730c4eb91d62673eaa"
+  },
+  "requires_human_decision": [],
+  "notes": "Not an approval. Issue snapshot: specs/issue-50/issue-snapshot.json (number/title/body only). Freshness policy: verify the saved file's byte hash, then compare its three field values with a fresh MCP issue read; recheck comment-based decisions separately (latest comment seen: 2026-11-02T00:37:45Z). Human review should confirm: (1) A1 - flag read at container start from FEATURE_* env vars (.env-style) rendered to /config.json; changing the env var on Azure Container Apps creates a new revision, so the flip is automated but not strictly instantaneous (plan 3.2); (2) A4 - canary workflow/docs/Bicep wording deleted and replaced by blue/green workflows (cd.yml rewrite, bluegreen-swap.yml, set-feature-flag.yml); (3) issue path infra/appservice.bicep does not exist, only infra/main.bicep. Spec tightening beyond issue text (SC-002, SC-004, SC-005, edge cases, FR-014) is recorded in plan.md section 7."
+}

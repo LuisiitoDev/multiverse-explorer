@@ -18,10 +18,6 @@
       "type": "string",
       "minLength": 1
     },
-    "review_id": {
-      "type": "integer",
-      "minimum": 1
-    },
     "statement": {
       "type": "string"
     },
@@ -43,11 +39,27 @@
     },
     "approved_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "Time the trusted gate verified the native environment review; GitHub does not return a review timestamp."
     },
-    "comment_id": {
+    "workflow_run_id": {
       "type": "integer",
       "minimum": 1
+    },
+    "run_attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "environment_name": {
+      "const": "implementation-approval"
+    },
+    "environment_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "comments_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
   },
   "required": [
@@ -60,28 +72,11 @@
     "spec_sha256",
     "plan_sha256",
     "base_commit",
-    "approved_at"
-  ],
-  "oneOf": [
-    {
-      "required": [
-        "review_id"
-      ],
-      "not": {
-        "required": [
-          "comment_id"
-        ]
-      }
-    },
-    {
-      "required": [
-        "comment_id"
-      ],
-      "not": {
-        "required": [
-          "review_id"
-        ]
-      }
-    }
+    "approved_at",
+    "workflow_run_id",
+    "run_attempt",
+    "environment_name",
+    "environment_id",
+    "comments_sha256"
   ]
 }

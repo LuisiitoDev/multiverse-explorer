@@ -49,7 +49,8 @@ for that exact head commit.
 
 **Packet validation**: validate planning, approval, implementation and review documents
 against their schemas in docs/agent-handoffs. Trusted preparation verified the approval
-provenance; inspect the referenced human approval comment or PR review and exact remote head evidence.
+provenance; inspect approval.json's independently verified native review/run/environment identity,
+the approved plan hashes and exact remote head evidence.
 
 **Staleness**: if the PR head, issue snapshot, plan hash, or base SHA has changed since the
 handoffs you're reading were produced, treat the state as stale and withhold a pass — re-fetch

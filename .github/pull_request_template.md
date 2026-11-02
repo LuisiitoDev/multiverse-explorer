@@ -1,7 +1,8 @@
 <!-- File: .github/pull_request_template.md -->
 
 ## Related issue (required)
-- **Closes:** #
+- **Related issue:** #
+<!-- Planning PRs must not close the feature issue. Add a closing keyword only when implementation is complete. -->
 
 ## Plan (required)
 - **Goal:**
@@ -21,7 +22,7 @@
 - **Rollback / escalation plan:**
 
 ## Acceptance criteria met (required)
-<!-- Copy each acceptance criterion from the linked issue and check it off only once verified. -->
+<!-- Reference each reconciled criterion from spec.md Success Criteria/Acceptance Scenarios, preserving traceability to the issue. Check it off only once verified. -->
 - [ ]
 
 ## Traceability (optional)

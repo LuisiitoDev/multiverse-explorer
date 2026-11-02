@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "statement": {
+      "type": "string"
+    },
+    "approved_head_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "spec_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "base_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "comment_id": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "issue_number",
+    "pr_number",
+    "actor",
+    "statement",
+    "approved_head_sha",
+    "spec_sha256",
+    "plan_sha256",
+    "base_commit",
+    "approved_at"
+  ],
+  "oneOf": [
+    {
+      "required": [
+        "review_id"
+      ],
+      "not": {
+        "required": [
+          "comment_id"
+        ]
+      }
+    },
+    {
+      "required": [
+        "comment_id"
+      ],
+      "not": {
+        "required": [
+          "review_id"
+        ]
+      }
+    }
+  ]
+}

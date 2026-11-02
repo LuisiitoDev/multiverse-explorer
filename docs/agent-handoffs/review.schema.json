@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "REVIEWED"
+    },
+    "transition_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reviewed_head_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "decision": {
+      "enum": [
+        "PASS",
+        "REQUEST_CHANGES",
+        "BLOCKED",
+        "ESCALATED"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "enum": [
+              "Blocker",
+              "Major",
+              "Minor",
+              "Question"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "path",
+          "description",
+          "evidence"
+        ]
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "status",
+    "transition_id",
+    "issue_number",
+    "pr_number",
+    "reviewed_head_sha",
+    "decision",
+    "findings",
+    "evidence"
+  ]
+}

@@ -13,7 +13,7 @@ import os
 import re
 import uuid
 
-from agent_runtime import (Blocked, GitHub, NAMES, WORKFLOWS, digest, encode,
+from agent_runtime import (Blocked, GitHub, WORKFLOWS, digest, encode,
                            planner_packet, require, validate, validate_approval, validate_diff)
 
 
@@ -162,7 +162,6 @@ class Coordinator:
         worker = pending["worker"]
         require(run["event"] == "workflow_dispatch" and run["head_branch"] == "main" and
                 run["path"] == ".github/workflows/" + WORKFLOWS[worker] and
-                run["name"] in NAMES and NAMES[run["name"]] == worker and
                 run["display_title"] == f"{worker} issue #{self.state['issue_number']} / {pending['transition_id']}",
                 "Worker provenance mismatch")
         # A trusted pre-step can fail before uploading any artifact. Terminal

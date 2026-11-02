@@ -1,7 +1,7 @@
 ---
 name: multiverse-implementer
 description: Implements exactly one explicitly human-approved plan for Multiverse Explorer, on a non-main branch, and reports auditable evidence.
-tools: [read, search, edit, execute, "github/*", "github-mcp-server/*", "safeoutputs/*"]
+tools: [read, search, edit, execute, "github/*", "github-mcp-server/*", "github-issue_read", "github-get_file_contents", "github-pull_request_read", "github-actions_get", "github-actions_list", "safeoutputs/*"]
 ---
 
 # Role and objective

@@ -8,7 +8,18 @@ on:
   pull_request_review:
     types: [submitted]
   workflow_run:
-    workflows: [Planner stage, Implementer stage, Reviewer stage, CI]
+    # Accept static workflow names and evaluated run-names. GitHub documents
+    # glob patterns for this filter; ** also covers the slash in our titles.
+    # The controller name is deliberately absent; producer paths are gated below.
+    workflows:
+      - Planner stage
+      - Implementer stage
+      - Reviewer stage
+      - 'planner issue #**'
+      - 'implementer issue #**'
+      - 'reviewer issue #**'
+      - CI
+      - CI Rick And Morty
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -40,7 +51,9 @@ jobs:
       (github.event_name == 'issues' && github.event.label.name == 'agent-lab') ||
       (github.event_name == 'issue_comment' && github.event.comment.user.type == 'User') ||
       github.event_name == 'pull_request_review' ||
-      github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch'
+      (github.event_name == 'workflow_run' &&
+       contains(fromJSON('[".github/workflows/agent-plan.lock.yml",".github/workflows/agent-implement.lock.yml",".github/workflows/agent-review.lock.yml",".github/workflows/ci.yml"]'), github.event.workflow_run.path)) ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

@@ -1,5 +1,6 @@
 """Offline transition/gate regressions. No network, dispatch, or repository writes."""
 import copy
+import fnmatch
 import json
 import sys
 import unittest
@@ -280,6 +281,58 @@ class WorkerTests(unittest.TestCase):
     def test_rerunning_job_cannot_reuse_transition(self):
         self.api.run["run_attempt"] = 2
         with self.assertRaisesRegex(Blocked, "Duplicate"): prepare(self.api, "planner", self.inputs, 100, BASE)
+
+
+class WorkflowRunCallbackTests(unittest.TestCase):
+    def setUp(self):
+        self.api = FakeAPI()
+        self.run = json.loads((Path(__file__).parent / "fixtures/planner_failed_run.json").read_text())
+        transition = self.run["display_title"].rsplit(" / ", 1)[1]
+        self.api.saved = approved(self.api)
+        self.api.saved.update(phase="PLANNING", approval=None, inflight={
+            "worker": "planner", "transition_id": transition, "source_sha": self.run["head_sha"],
+            "inputs": {"issue_number": "50", "pr_number": "71", "expected_head_sha": PLAN_HEAD,
+                       "transition_id": transition}, "delivery": "sent", "requested_at": "2026-11-01T13:00:00Z"})
+        self.api.responses[f"/actions/runs/{self.run['id']}"] = self.run
+
+    def test_actual_dynamic_run_name_clears_failed_worker_lease(self):
+        with self.assertRaisesRegex(Blocked, "failed"):
+            handle(self.api, "workflow_run", {"workflow_run": {"id": self.run["id"]}})
+        self.assertEqual(self.api.saved["phase"], "BLOCKED")
+        self.assertIsNone(self.api.saved["inflight"])
+        self.assertIn(f"run:{self.run['id']}:1", self.api.saved["processed_events"])
+        self.assertFalse(any(path.endswith("dispatches") for path, _, _ in self.api.writes))
+
+    def test_callback_filter_selects_real_run_and_excludes_controller(self):
+        # Keep the literal patterns exercised against real metadata. YAML and
+        # hosted filter behavior are separately validated; this is a regression
+        # for the originally missing dynamic name, not an Actions emulator.
+        source = (Path(__file__).resolve().parents[2] / ".github/workflows/agent-orchestrator.yml").read_text()
+        block = source.split("    workflows:\n", 1)[1].split("    types:", 1)[0]
+        patterns = [line.strip()[2:].strip("'\"") for line in block.splitlines() if line.strip().startswith("- ")]
+        self.assertTrue(any(fnmatch.fnmatchcase(self.run["name"], p) for p in patterns))
+        self.assertFalse(any(fnmatch.fnmatchcase("Agent orchestrator", p) for p in patterns))
+        self.assertFalse(any(fnmatch.fnmatchcase("Unrelated workflow", p) for p in patterns))
+
+    def test_unrelated_workflow_cannot_release_pending_worker(self):
+        self.run["path"] = ".github/workflows/unrelated.yml"
+        with self.assertRaisesRegex(Blocked, "provenance"):
+            handle(self.api, "workflow_run", {"workflow_run": {"id": self.run["id"]}})
+        self.assertIsNotNone(self.api.saved["inflight"])
+
+    def test_duplicate_dynamic_completion_does_not_write_again(self):
+        with self.assertRaises(Blocked):
+            handle(self.api, "workflow_run", {"workflow_run": {"id": self.run["id"]}})
+        writes = len(self.api.writes)
+        handle(self.api, "workflow_run", {"workflow_run": {"id": self.run["id"]}})
+        self.assertEqual(len(self.api.writes), writes)
+
+    def test_dynamic_name_does_not_replace_source_sha_check(self):
+        self.run["head_sha"] = "f" * 40
+        with self.assertRaisesRegex(Blocked, "different source revision"):
+            handle(self.api, "workflow_run", {"workflow_run": {"id": self.run["id"]}})
+        self.assertEqual(self.api.saved["phase"], "BLOCKED")
+        self.assertIsNone(self.api.saved["inflight"])
 
 
 if __name__ == "__main__":

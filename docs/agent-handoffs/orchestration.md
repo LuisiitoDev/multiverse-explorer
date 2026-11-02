@@ -164,3 +164,41 @@ schema and byte hashes only; live freshness/approval checks remain separate.
 Unit tests use fake APIs: they never contact GitHub, mutate branches or start AI
 runs. Hosted MCP, environment protection and gh-aw-generated publication are
 integration checks to perform after compilation.
+
+## Diagnosing native MCP exposure and missed callbacks
+
+Run 41375187898 connected to GitHub MCP successfully, and the backend advertised
+issue_read. Its Copilot model-facing tool fingerprint nevertheless contained
+only local tools and safeoutputs MCP tools, with no GitHub tools. This isolates
+the failure to the native tool-exposure/selection boundary rather than issue
+permissions, Spec Kit, hashing or PR publication. Backend connectivity alone is
+not proof of the model's available tool set.
+
+Profiles now include concrete CLI-native names such as github-issue_read in
+addition to the cross-host github/* selectors, matching the workflow's existing
+read allowlist. This is a targeted exposure correction; its success still needs
+a hosted trace showing actual issue_read get/get_comments calls. It does not
+enable CLI fallback, all-tools wildcards, broader GitHub permissions, new MCP
+servers or additional shell commands. The CLI-ignored applyTo field was removed;
+planning-file scope remains explicit in the profile and safe-output allowlist.
+
+The same run also exposed an independent coordinator bug: run.name contained
+the evaluated run-name, not Planner stage, and the fixed-name workflow_run
+filter never activated a callback. The controller now selects both static names
+and evaluated worker run-name patterns, plus the CI name variants. It excludes
+its own name and independently admits only the three worker paths or ci.yml. Code verifies the
+producer path, event, branch, source SHA and durable transition title without
+using the mutable display name as workflow identity. The controller's own path
+is excluded from the privileged job as well. Failed known workers release their
+lease without trusting missing artifacts; duplicate callbacks stay inert.
+
+After installing the correction, an already-stuck transition requires a human
+`/agent recover` command on its issue. This processes the existing failed run and
+clears the lease; it does not rerun the worker. Before `/agent plan`, update the
+canonical PR branch with current main if its baseline has advanced. Neither the
+repair command nor a new hosted run is sent automatically by this patch.
+
+Only profiles, the plain Actions controller and Python tests/code changed for
+this repair; the gh-aw worker Markdown/lock pairs are unchanged. No gh-aw
+recompilation is needed solely for these profile/controller edits. Hosted tool
+exposure remains an integration check, not a result established by unit tests.

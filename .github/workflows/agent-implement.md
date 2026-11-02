@@ -125,9 +125,9 @@ safe-outputs:
 
 Follow `.github/agents/implementer.agent.md`. Read `/tmp/gh-aw/agent-context.json`
 and `/tmp/gh-aw/approval.json`; trusted preparation independently verified the
-hash-bound human approval comment, exact approved spec/plan hashes and baseline.
-The implementation-approval environment is an additional gate; it does not
-replace or create approval evidence. Never manufacture approval.json.
+native human review of the implementation-approval environment for this pipeline
+run, bound to the exact approved spec/plan hashes, PR revision and baseline.
+No approval issue comment is required. Never manufacture approval.json.
 
 The canonical PR head is already checked out. Read originating issue/comments
 through native GitHub MCP, constitution, spec.md, plan.md and planner-handoff.json.

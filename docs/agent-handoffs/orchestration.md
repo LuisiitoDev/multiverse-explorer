@@ -39,7 +39,7 @@ flowchart LR
 | Reusable workflows (`workflow_call`), nested | pipeline → `agent-iteration.yml` → gh-aw locks / `ci.yml` |
 | Artifact/handoff-based coordination | planner/implementation handoff files on the PR, review artifact, job outputs |
 | Reasoning vs. writing boundary | agents run read-only; writes only via gh-aw safe outputs and trusted gate jobs |
-| Human-in-the-loop gate | `environment: implementation-approval` **plus** hash-bound `/agent approve` comment |
+| Human-in-the-loop gate | `environment: implementation-approval` with native human review bound to this run, head and spec/plan hashes |
 | Isolation / concurrency | per-issue `concurrency` group; per-invocation gh-aw `job-discriminator` |
 | Bounded retry + escalation threshold | exactly one remediation iteration; second `REQUEST_CHANGES` escalates |
 | Failure handling | `finalize` runs `always()`, labels `agent:blocked`/`agent:escalated`, links the run |
@@ -49,7 +49,7 @@ flowchart LR
 
 - `implementation-approval` environment **must** have a required human reviewer.
   An environment without protection rules runs `approve` immediately, which then
-  fails closed because no approval comment exists yet.
+  fails closed because GitHub has no native human review for that run.
 - Secrets used by the workers (`COPILOT_GITHUB_TOKEN`, gh-aw tokens) and
   `SONAR_TOKEN` are passed with `secrets: inherit`. No new secrets.
 - Labels: `agent-lab` (entry), `agent-plan` (canonical PR marker). Phase labels
@@ -65,8 +65,12 @@ Apply `agent-lab` to an issue, comment `/agent plan` as a repository writer, or
 run **Agent pipeline** manually with the issue number. `route` adopts the only
 matching open agent PR, or creates `agent-plan/issue-N` with a data-only
 `specs/issue-N/task.json` seed and a draft PR. More than one matching PR blocks:
-close the extras, then comment `/agent plan`. An existing branch without a PR
-blocks too (fail-closed; nothing is deleted or recreated).
+close the extras, then start a new pipeline run. If the original branch already
+exists without an open canonical PR, a fresh attempt uses
+`agent-plan/issue-N-run-<run-id>-<attempt>` from current main and creates a new PR.
+The old branch and closed PR are preserved; no force push or reopen is performed.
+An existing open canonical PR is always reused. Closing a PR alone does not launch
+a replacement: apply the entry label again or use Run workflow for the next attempt.
 
 If the PR branch does not include current `main`, `route` updates it with
 GitHub's update-branch (a merge commit, never a force-push) and plans on the new
@@ -78,16 +82,23 @@ approval exists yet. A merge conflict blocks with the reason; resolve it, then
 
 - **NEEDS_CLARIFICATION**: the run ends with `agent:needs-clarification`. A
   writer's ordinary reply on the issue starts a new run on the same PR.
-- **PLANNED**: `plan-gate` posts the exact command and the run waits at the
-  environment. To authorize:
-  1. Review spec/plan and post on the issue: `/agent approve <head SHA> <plan SHA-256>`.
-  2. Approve the pending `implementation-approval` deployment in the run.
+- **PLANNED**: `plan-gate` posts the PR head and spec/plan hashes. Review those
+  documents, then approve the pending `implementation-approval` deployment in
+  that workflow run. **No `/agent approve` issue comment is required.**
 
-  `approve` re-checks that a writer posted that exact command, the PR head and
-  spec/plan bytes are unchanged, `main` has not moved and no new human comments
-  arrived since planning. Every post-planning worker re-verifies the comment
-  (author, permission, exact body) before starting; editing it revokes approval.
-  Rejecting the deployment ends the run as `agent:escalated`.
+  The trusted `approve` job reads GitHub's native review history for this exact
+  run and requires an approved `implementation-approval` review by a human
+  repository writer. It binds that evidence to the unchanged PR head,
+  spec/plan hashes, main baseline and human issue decisions. An absent review,
+  unprotected environment, rejected review or bot/non-writer does not authorize work.
+
+  Every post-planning worker independently re-fetches that native review and
+  rechecks the run/environment/actor, approved and current document bytes,
+  ancestry, current issue snapshot and human answers before starting. A rerun
+  of failed jobs may reuse the verified approval for the same unchanged plan
+  in the same pipeline run; records from another run or a future attempt fail.
+  `approved_at` records verification time because GitHub's review-history API
+  does not return the review timestamp. Rejecting the deployment ends the run.
 
 ## Implementation, CI and review
 
@@ -111,7 +122,7 @@ There is no durable state to repair: the workflow run *is* the state.
 | Situation | Action |
 |---|---|
 | Transient failure (runner, API, model) | **Re-run failed jobs** on the run |
-| Gate blocked (stale plan, moved head, edited approval) | Fix the cause, then `/agent plan` |
+| Gate blocked (stale plan, moved head, revoked approval) | Fix the cause, then `/agent plan` |
 | `main` moved while waiting for approval | `/agent plan` (route updates the branch and replans) |
 | Want a fresh revision | `/agent plan` or manual dispatch (queued behind any active run for the issue) |
 | Abandon a waiting run | Reject the deployment or cancel the run |
@@ -134,3 +145,19 @@ Removed: `scripts/*.py` and tests, `agent-orchestrator.yml`,
 check. The planner remains limited to `specs/**` and `.specify/feature.json` by
 gh-aw `allowed-files`, and the implementer by its safe-output allowlist. The
 `agent-orchestration-state` branch can be deleted manually after merge.
+
+## Approval incident 41395908995
+
+The Planner and plan-gate succeeded. LuisiitoDev approved the protected
+implementation environment, but `approve` also required an exact issue command
+and failed before that command was posted. Commands posted after a failed job
+only produced skipped runs; they could not resume it. Native environment review
+is now the sole human approval mechanism, independently bound to the exact plan.
+This preserves workflow orchestration (`needs`/`workflow_call`) and human control.
+
+For a source update, regenerate **all three** gh-aw locks because they import the
+changed shared preparation. Compile on the fix branch before merging. Existing
+runs keep their original workflow revision; rerunning an old run does not install
+this patch. After merge, start a fresh pipeline from the Actions UI (issue number)
+or reapply `agent-lab`. No issue command is needed. Hosted success remains an
+integration check, not a result established by offline regression tests.

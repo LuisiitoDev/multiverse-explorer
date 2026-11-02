@@ -1,7 +1,7 @@
 # Implementation Plan: 3D Multiverse Globe Map (issue #50)
 
 **Spec**: [spec.md](./spec.md) — acceptance criteria live in its *Success Criteria* and *Acceptance Scenarios* sections; they are not restated here.
-**Base**: `2015fc542544c5a0c4737b28b8dad5ee69fe34ff` (main). **Status**: PLANNED — ready for human review, **not approved**.
+**Base**: `72314938a3c93b7777cf061ab3a69ca6b6d2f556` (main). **Status**: PLANNED — ready for human review, **not approved**.
 
 ## 1. Verified facts (observed in repo at base)
 

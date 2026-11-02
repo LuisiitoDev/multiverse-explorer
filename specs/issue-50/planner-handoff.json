@@ -3,14 +3,14 @@
   "status": "PLANNED",
   "source": "planner",
   "target": "human",
-  "created_at": "2026-11-02T15:50:30Z",
+  "created_at": "2026-11-02T16:28:00Z",
   "issue": {
     "number": 50,
     "url": "https://github.com/LuisiitoDev/multiverse-explorer/issues/50",
     "snapshot_sha256": "8796d3acefdd7c56c076f9bf5dd3452603c084a76b5a0251c2c29a034f75d97c",
-    "fetched_at": "2026-11-02T15:50:00Z"
+    "fetched_at": "2026-11-02T16:26:34Z"
   },
-  "base_commit": "2015fc542544c5a0c4737b28b8dad5ee69fe34ff",
+  "base_commit": "72314938a3c93b7777cf061ab3a69ca6b6d2f556",
   "spec": {
     "feature_directory": "specs/issue-50",
     "spec_file": "specs/issue-50/spec.md",
@@ -18,7 +18,7 @@
   },
   "plan": {
     "plan_file": "specs/issue-50/plan.md",
-    "plan_sha256": "e2d5daf3692b9c15a8dd4f395a4ca1abb7494173380a9cd82d1563cd8a609775"
+    "plan_sha256": "da9c3eeb31b5ec9bff1f1225869c5ef3751fb0dde5ccc8392b9ab6a7537aeb66"
   },
   "requires_human_decision": [],
   "notes": "Issue snapshot saved at specs/issue-50/issue-snapshot.json (number, title, body). Requester decisions from issue comments applied: runtime .env-style FEATURE_* flags served as /config.json, Azure Container Apps, three+r3f+drei with NASA Blue Marble, canary deleted and replaced by Blue/Green workflows (cd.yml, bluegreen-swap.yml, set-feature-flag.yml), Bicep modules. Criteria tightened beyond issue text: measurable bundle-size criterion (SC-004), fail-closed flag, reduced-motion, texture-failure handling. infra/appservice.bicep exists but is unrelated and denied. PLANNED is not approval; a human must review the exact spec/plan hashes and scope.",

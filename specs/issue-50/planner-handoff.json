@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "status": "NEEDS_CLARIFICATION",
+  "source": "planner",
+  "target": "human",
+  "created_at": "2026-11-02T00:03:57Z",
+  "issue": {
+    "number": 50,
+    "url": "https://github.com/LuisiitoDev/multiverse-explorer/issues/50",
+    "snapshot_sha256": "38ac27d3c7cc8775da5aee00823df7d2a766f68a692069127df340db92133f5d",
+    "fetched_at": "2026-11-02T00:03:57Z"
+  },
+  "base_commit": "5754a3545a327f73a2070de3442b9e8eca9af4f9",
+  "spec": {
+    "feature_directory": "specs/issue-50",
+    "spec_file": "specs/issue-50/spec.md",
+    "spec_sha256": "f1836513e162f16110df353b5a3339b54e8cc0c646f4c0dc6dd8aea59842240c"
+  },
+  "plan": {
+    "plan_file": "specs/issue-50/plan.md",
+    "plan_sha256": "ca672d31939fc384ac74d10f414dd3851239877926b8244a9f3658f540f11f20"
+  },
+  "requires_human_decision": [
+    "D1: Existing feature flags are build-time (VITE_FEATURE_*); turning the flag on/off independently of deployment requires a runtime flag source. Choose runtime /config.json strategy (recommended) or a remote service such as Azure App Configuration.",
+    "D2: Choose the Blue/Green platform: Azure Container Apps revision labels (matches infra/main.bicep and cd.yml, recommended) or App Service slots (infra/appservice.bicep).",
+    "D3: Confirm 3D library (three + @react-three/fiber + drei) and the Earth texture source (NASA Blue Marble, public domain)."
+  ],
+  "notes": "Snapshot path: specs/issue-50/issue-snapshot.json (number, title, body only). Freshness policy: verify the saved file's byte SHA-256, then compare its three field values with a fresh MCP issue read; recheck comment-based decisions separately. Refreshed at fetch time; issue unchanged (updated_at 2026-11-02T00:01:36Z), only a bot status comment exists. Criteria added beyond issue text: measurable SC-001/002/004/006, keyboard-accessible marker list, reduced-motion, context-loss and texture-failure edge cases; D1 conflict flagged. This handoff is not an approval."
+}

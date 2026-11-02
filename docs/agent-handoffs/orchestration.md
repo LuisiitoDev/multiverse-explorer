@@ -5,6 +5,9 @@ remediation. Orchestration is expressed **entirely as GitHub Actions workflows**
 one pipeline run chains the three gh-aw agents as reusable workflows. No Python
 controller, no state branch, no `workflow_run` callbacks. No agent merges or deploys.
 
+Publisher authentication is a prerequisite between route and plan (omitted
+from the simplified graph below). See [publisher App setup](./publisher-app.md).
+
 ## Topology
 
 ```mermaid
@@ -51,7 +54,10 @@ flowchart LR
   An environment without protection rules runs `approve` immediately, which then
   fails closed because GitHub has no native human review for that run.
 - Secrets used by the workers (`COPILOT_GITHUB_TOKEN`, gh-aw tokens) and
-  `SONAR_TOKEN` are passed with `secrets: inherit`. No new secrets.
+  `SONAR_TOKEN` are passed with `secrets: inherit`. The publisher additionally
+  references secret `GH_AW_APP_PRIVATE_KEY` and public variable
+  `GH_AW_APP_CLIENT_ID`; these require owner setup as described above. The key
+  is used only in publisher auth/output jobs, never the model/MCP.
 - Labels: `agent-lab` (entry), `agent-plan` (canonical PR marker). Phase labels
   `agent:planning`, `agent:needs-clarification`, `agent:awaiting-approval`,
   `agent:implementing`, `agent:reviewing`, `agent:ready-for-human-review`,
@@ -186,6 +192,14 @@ were still missing. Fixing publication does not complete that application work.
 PARTIAL/BLOCKED or missing/failed validation continues to stop CI/review and is
 reported with pending checks. The pipeline never treats a local commit, queued
 output or partial implementation as a completed publication/implementation.
+
+Run 41523504642 passed path checks, then the push was rejected for missing
+Workflows permission. The publisher now uses a configured GitHub App with
+allow-workflows enabled. Its workflow envelope is narrowed to the four deployment
+files from the approved plan. [publisher-app.md](./publisher-app.md) documents
+the required installation/key setup and early token-permission check.
+Protected-file review and PARTIAL remain blocking controls. Local tests do not
+establish App readiness or hosted success.
 
 ## Migration from the Python controller
 

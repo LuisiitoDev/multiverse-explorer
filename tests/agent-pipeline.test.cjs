@@ -42,6 +42,7 @@ function fixture() {
   const env = {ISSUE_NUMBER: '50', PR_NUMBER: '74', HEAD_SHA: HEAD, EXPECTED_HEAD_SHA: HEAD,
     SPEC_SHA256: digest('spec'), PLAN_SHA256: digest('plan'), BASE_COMMIT: BASE,
     COMMENTS_SHA256: digest('[]'), GITHUB_RUN_ATTEMPT: '1', AGENT_WORKER: 'implementer',
+    PUBLISHER_APP_CLIENT_ID: 'Iv1.public-test-id', PUBLISHER_APP_KEY_CONFIGURED: 'true',
     TRANSITION_ID: 'd'.repeat(32), ATTEMPT: '1', REMEDIATION_JSON: '[]'};
   const context = {repo: {owner: 'LuisiitoDev', repo: 'multiverse-explorer'}, runId: 41395908995,
     eventName: 'workflow_dispatch', payload: {inputs: {issue_number: '50'}, sender: {type: 'User', login: 'LuisiitoDev'}}};
@@ -212,5 +213,15 @@ test('multiple open canonical PRs still fail closed', async () => {
 test('non-writer cannot start a planning pipeline', async () => {
   const f = fixture(); f.state.permission = {permission: 'read', role_name: 'read'};
   await f.run(pipeline, 'Route event to the canonical PR');
+  assert.equal(f.outputs.run, 'false'); assert.deepEqual(f.state.writes, []);
+});
+
+for (const [name, change] of [
+  ['missing App client ID', f => {f.env.PUBLISHER_APP_CLIENT_ID = ''; }],
+  ['missing App key', f => {f.env.PUBLISHER_APP_KEY_CONFIGURED = 'false'; }]
+]) test(`publisher preflight rejects ${name} before creating or changing a task PR`, async () => {
+  const f = fixture(); f.state.open = []; change(f);
+  await f.run(pipeline, 'Route event to the canonical PR');
+  assert.match(f.failures.join(), /Publisher GitHub App is not configured/);
   assert.equal(f.outputs.run, 'false'); assert.deepEqual(f.state.writes, []);
 });

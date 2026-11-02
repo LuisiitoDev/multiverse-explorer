@@ -67,6 +67,9 @@ jobs:
       - name: Route event to the canonical PR
         id: route
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PUBLISHER_APP_CLIENT_ID: ${{ vars.GH_AW_APP_CLIENT_ID }}
+          PUBLISHER_APP_KEY_CONFIGURED: ${{ secrets.GH_AW_APP_PRIVATE_KEY != '' }}
         with:
           script: |
             const crypto = require('crypto');
@@ -100,6 +103,10 @@ jobs:
 
               const { data: source } = await github.rest.issues.get({ owner, repo, issue_number: issue });
               if (source.state !== 'open' || source.pull_request) fail('Originating issue must be an open issue');
+              // Presence only; the next job validates installation/auth/scopes
+              // by minting a short-lived token before any model runs.
+              if (!process.env.PUBLISHER_APP_CLIENT_ID?.trim() || process.env.PUBLISHER_APP_KEY_CONFIGURED !== 'true')
+                fail('Publisher GitHub App is not configured: set repository variable GH_AW_APP_CLIENT_ID and secret GH_AW_APP_PRIVATE_KEY. See docs/agent-handoffs/publisher-app.md; GITHUB_TOKEN cannot publish the planned workflow edits.');
 
               const { data: mainRef } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
               const main = mainRef.object.sha;
@@ -180,9 +187,32 @@ jobs:
               core.setFailed(error.message);
             }
 
+  # Validate the publisher App before spending another Planner/Implementer run.
+  # No API write uses this preflight token; the action revokes it after the job.
+  # The actual publisher mints its own fresh token after human plan approval.
+  publisher-auth:
+    needs: route
+    if: needs.route.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Verify repository-scoped publisher App permissions
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.GH_AW_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_AW_APP_PRIVATE_KEY }}
+          owner: LuisiitoDev
+          repositories: multiverse-explorer
+          permission-administration: read
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+          permission-workflows: write
+
   # ── 2. Planner agent (gh-aw reusable workflow) ──
   plan:
-    needs: route
+    needs: [route, publisher-auth]
     if: needs.route.outputs.run == 'true'
     permissions:
       actions: read
@@ -437,7 +467,7 @@ jobs:
 
   # ── 6. Report outcome; escalate to a human on any failure. Never merges. ──
   finalize:
-    needs: [route, plan, plan-gate, approve, iteration-1, iteration-2]
+    needs: [route, publisher-auth, plan, plan-gate, approve, iteration-1, iteration-2]
     if: always() && needs.route.result != 'skipped' && (needs.route.outputs.run == 'true' || needs.route.result == 'failure')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -456,12 +486,13 @@ jobs:
             const issueNumber = Number(needs.route.outputs.issue_number || process.env.FALLBACK_ISSUE);
             if (!issueNumber) return;
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
-            const order = ['route', 'plan', 'plan-gate', 'approve', 'iteration-1', 'iteration-2'];
+            const order = ['route', 'publisher-auth', 'plan', 'plan-gate', 'approve', 'iteration-1', 'iteration-2'];
             const failed = order.find((job) => ['failure', 'cancelled'].includes(needs[job].result));
             const last = needs['iteration-2'].result === 'success' ? needs['iteration-2'] : needs['iteration-1'];
             let phase, message;
             if (failed) {
-              const blocker = needs[failed].outputs.blocker;
+              const blocker = needs[failed].outputs.blocker ||
+                (failed === 'publisher-auth' ? 'Publisher GitHub App authentication/installation/permissions failed; see docs/agent-handoffs/publisher-app.md and publisher-auth logs.' : '');
               phase = blocker ? 'agent:blocked' : 'agent:escalated';
               message = `**${blocker ? 'BLOCKED' : 'ESCALATED'}** at \`${failed}\`: ${blocker || 'job failed or approval was rejected; inspect the run.'}`;
             } else if (needs['plan-gate'].outputs.status === 'NEEDS_CLARIFICATION') {

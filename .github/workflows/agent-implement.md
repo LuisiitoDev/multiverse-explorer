@@ -112,7 +112,15 @@ steps:
   with:
     dotnet-version: '10.0.x'
 safe-outputs:
+  # Publisher-only credential: never used by the agent or GitHub MCP.
+  github-app:
+    client-id: ${{ vars.GH_AW_APP_CLIENT_ID }}
+    private-key: ${{ secrets.GH_AW_APP_PRIVATE_KEY }}
+    owner: LuisiitoDev
+    repositories:
+    - multiverse-explorer
   push-to-pull-request-branch:
+    allow-workflows: true
     target: ${{ inputs.pr_number }}
     required-title-prefix: '[Agent Lab] '
     required-labels:
@@ -122,7 +130,10 @@ safe-outputs:
     - frontend/**
     - backend/**
     - infra/**
-    - .github/workflows/**
+    - .github/workflows/cd.yml
+    - .github/workflows/infra.yml
+    - .github/workflows/bluegreen-swap.yml
+    - .github/workflows/set-feature-flag.yml
     - THIRD_PARTY_NOTICES.md
     - docs/blue-green-deployment.md
     - docs/canary-deployment.md

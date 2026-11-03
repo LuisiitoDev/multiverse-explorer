@@ -18,12 +18,10 @@
   },
   "plan": {
     "plan_file": "specs/issue-50/plan.md",
-    "plan_sha256": "735e0a9580f5d358bf88e114962f503a0602e42bb412c3a5e646eba1324ccccc"
+    "plan_sha256": "5a7f0c45ae6d098dc49d66eb74253fc3c6a88780d0e895658323e35e820ba35a"
   },
-  "requires_human_decision": [
-    "Manual tasks M1-M4 in specs/issue-50/plan.md section 4a: a human must rewrite .github/workflows/cd.yml, create bluegreen-swap.yml and set-feature-flag.yml, and update infra.yml (workflow changes are human-only), validate them, then trigger a fresh planning run to verify before implementation."
-  ],
-  "notes": "Issue snapshot saved at specs/issue-50/issue-snapshot.json (number, title, body). Requester decisions from issue comments applied: runtime .env-style FEATURE_* flags served as /config.json, Azure Container Apps, three+r3f+drei with NASA Blue Marble, canary deleted and replaced by Blue/Green workflows (cd.yml, bluegreen-swap.yml, set-feature-flag.yml), Bicep modules. Criteria tightened beyond issue text: measurable bundle-size criterion (SC-004), fail-closed flag, reduced-motion, texture-failure handling. infra/appservice.bicep exists but is unrelated and denied. Changes under .github/workflows/ are human-only, so they were removed from allowed_paths and recorded as manual tasks M1-M4; status BLOCKED until applied and verified by a fresh plan. BLOCKED is not approval; PLANNED is not approval; a human must review the exact spec/plan hashes and scope.",
+  "requires_human_decision": [],
+  "notes": "Issue snapshot saved at specs/issue-50/issue-snapshot.json (number, title, body). Requester decisions from issue comments applied: runtime .env-style FEATURE_* flags served as /config.json, Azure Container Apps, three+r3f+drei with NASA Blue Marble, canary deleted and replaced by Blue/Green workflows (cd.yml, bluegreen-swap.yml, set-feature-flag.yml), Bicep modules. Criteria tightened beyond issue text: measurable bundle-size criterion (SC-004), fail-closed flag, reduced-motion, texture-failure handling. infra/appservice.bicep exists but is unrelated and denied. Changes under .github/workflows/ are human-only, so they are listed in plan.md under Human follow-ups and excluded from allowed_paths; the NASA texture is also a human follow-up. PLANNED is not approval; a human must review the exact spec/plan hashes and scope.",
   "execution_scope": {
     "allowed_paths": [
       "frontend/src/**",

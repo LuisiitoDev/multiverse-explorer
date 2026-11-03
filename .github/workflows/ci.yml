@@ -19,19 +19,6 @@ on:
         required: false
         type: string
         default: ''
-      pr_number:
-        description: Pull request being validated, so SonarCloud records a PR analysis instead of a main-branch one
-        required: false
-        type: string
-        default: ''
-      head_ref:
-        description: Head branch of that pull request
-        required: false
-        type: string
-        default: ''
-    secrets:
-      SONAR_TOKEN:
-        required: false
 
 env:
   NODE_VERSION: 22
@@ -99,45 +86,3 @@ jobs:
       - name: Integration tests
         working-directory: backend
         run: dotnet test test/Favorites.IntegrationTests/Favorites.IntegrationTests.csproj --configuration Release
-
-  analyze-code-sonarcloude:
-    name: Analyze Static Code with SonarCloud
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref || github.sha }}
-          # SonarCloud needs full history to diff against main for New Code.
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: frontend
-        run: npm ci
-
-      # SonarCloud reads coverage from lcov, so it has to exist before the scan.
-      - name: Run tests with coverage
-        working-directory: frontend
-        run: npm run test:coverage
-
-      - name: Analyze Static Code with SonarCloud
-        uses: SonarSource/sonarqube-scan-action@v6
-        with:
-          args: >
-              -Dsonar.organization=luisiitodev
-              -Dsonar.projectKey=luisiitodev
-              -Dsonar.sources=.
-              -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
-              -Dsonar.coverage.exclusions=**/*.test.tsx,**/*.test.ts,**/test/**,frontend/src/main.tsx,**/*.config.ts
-              ${{ inputs.pr_number && format('-Dsonar.pullrequest.key={0} -Dsonar.pullrequest.branch={1} -Dsonar.pullrequest.base=main', inputs.pr_number, inputs.head_ref) || '' }}
-        env:
-          GIT_HUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

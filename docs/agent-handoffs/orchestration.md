@@ -50,8 +50,9 @@ flowchart LR
 - `implementation-approval` environment **must** have a required human reviewer.
   An environment without protection rules runs `approve` immediately, which then
   fails closed because GitHub has no native human review for that run.
-- Secrets used by the workers (`COPILOT_GITHUB_TOKEN`, gh-aw tokens) and
-  `SONAR_TOKEN` are passed with `secrets: inherit`. No new secrets.
+- Secrets used by the workers (`COPILOT_GITHUB_TOKEN`, gh-aw tokens) are passed
+  with `secrets: inherit`. CI needs no secrets (SonarCloud was removed after its
+  token started failing with HTTP 403).
 - Labels: `agent-lab` (entry), `agent-plan` (canonical PR marker). Phase labels
   `agent:planning`, `agent:needs-clarification`, `agent:awaiting-approval`,
   `agent:implementing`, `agent:reviewing`, `agent:ready-for-human-review`,
@@ -113,10 +114,6 @@ the canonical PR is authored by `github-actions[bot]`, the same identity as the
 safe-output token, and GitHub rejects `REQUEST_CHANGES`/`APPROVE` on your own PR.
 The verdict (PASS, REQUEST_CHANGES, BLOCKED, ESCALATED) lives in the review
 artifact's `decision`, which is what the pipeline routes on.
-
-When `ci.yml` is called by the pipeline it receives the PR number and head
-branch, so SonarCloud records a pull-request analysis instead of a `main`
-branch analysis of unmerged code.
 
 `REQUEST_CHANGES` triggers `iteration-2` with the findings as remediation
 input. A second `REQUEST_CHANGES` escalates. `PASS` sets

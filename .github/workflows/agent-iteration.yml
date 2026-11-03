@@ -198,7 +198,7 @@ jobs:
                 fail(`Implementer reported ${report.status}; pending checks: ${missing.join(', ') || 'see deviations'}. Publication is not completion; CI/review remains blocked.`);
               }
               if (!report.local_validation.length || !report.local_validation.every((check) => check.result === 'passed'))
-                fail('Implementation lacks passing local validation evidence');
+                fail(`Implementation lacks passing local validation evidence: ${report.local_validation.filter((check) => check.result !== 'passed').map((check) => `${check.command} (${check.result})`).join(', ') || 'no checks reported'}`);
               core.setOutput('head_sha', head);
               core.setOutput('head_ref', pr.head.ref);
               const labels = (await github.paginate(github.rest.issues.listLabelsOnIssue, { owner, repo, issue_number: issue, per_page: 100 }))

@@ -97,10 +97,11 @@ tools:
   - 'dotnet build:*'
   - dotnet test
   - 'dotnet test:*'
-  # Standalone Bicep CLI installed by the trusted step below (no az, no Azure credentials).
-  - bicep --version
-  - 'bicep build:*'
-  - 'bicep lint:*'
+  # Standalone Bicep CLI provided by the trusted step below (no az, no Azure credentials).
+  # Copilot CLI only matches `cmd sub:*` for its stem commands (git, npm, dotnet...);
+  # `bicep build:*` never matched (run 27), so allow the executable. The prompt limits
+  # use to build/lint; the firewall blocks registries and the gate checks paths.
+  - bicep
 network:
   allowed:
   - defaults

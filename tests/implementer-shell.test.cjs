@@ -48,8 +48,13 @@ test('compiled production lock carries argument rules when compilation is reques
 });
 test('Bicep CLI is installed by a trusted step before the agent, never by the agent', () => {
   const steps = source.split('\nsteps:\n')[1].split('\nsafe-outputs:')[0];
-  assert.match(steps, /az bicep install/);
-  assert.match(steps, /install -m 0755 "\$HOME\/\.azure\/bin\/bicep" \/usr\/local\/bin\/bicep/);
+  // Run 24: `az bicep install` is a no-op on ubuntu-24.04 (Bicep is preinstalled),
+  // so the step must use the image binary and only fall back to a hash-pinned download.
+  assert.ok(!/az bicep install|\.azure\/bin\/bicep/.test(steps), 'do not depend on az bicep install');
+  assert.match(steps, /if ! command -v bicep >\/dev\/null 2>&1; then/);
+  assert.match(steps, /BICEP_SHA256: [0-9a-f]{64}\n/);
+  assert.match(steps, /sha256sum -c -\n\s+sudo install -m 0755 "\$RUNNER_TEMP\/bicep" \/usr\/local\/bin\/bicep/);
+  assert.match(steps, /bicep --version/);
   assert.ok(!rules.some(rule => rule.startsWith('az')), 'agent must not run az');
   assert.match(source, /bicep build infra\/main\.bicep --stdout/);
 });

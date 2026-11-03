@@ -5,10 +5,33 @@ remediation. Orchestration is expressed **entirely as GitHub Actions workflows**
 one pipeline run chains the three gh-aw agents as reusable workflows. No Python
 controller, no state branch, no `workflow_run` callbacks. No agent merges or deploys.
 
+## Product Owner stage (before the pipeline)
+
+1. A human opens an issue from the **Feature idea** template (label `po:idea`)
+   and describes the idea in their own words.
+2. `agent-product-owner.md` runs one turn per human comment: it asks questions
+   (`add_comment`) or publishes a draft through the `po_draft` custom safe output.
+   Trusted code renders the draft in the `agent-handoff.yml` format, neutralizes
+   hidden HTML and signs it (`<!-- po-draft:v1 sha256=… data=… -->`).
+3. The human comments exactly `/po approve`. `agent-po-approve.yml` (no LLM)
+   checks write permission, verifies the latest draft's hash, replaces the issue
+   title/body with it, swaps `po:idea` for `agent-lab` and dispatches
+   `agent-pipeline.yml`.
+4. A label added with `GITHUB_TOKEN` does not trigger workflows, so the hand-off is
+   a `workflow_dispatch` sent by `github-actions[bot]`. `route` accepts it only after
+   re-deriving the approval: latest `/po approve` by a writer, signed draft before
+   it, live issue text equal to that draft. The approving human becomes the actor.
+
+The PO never approves, labels or starts work. Editing the issue after approval
+makes the dispatch fail closed; comment `/agent plan` to plan the current text.
+Opening an issue directly from the **Agent handoff** template (label `agent-lab`)
+still skips the PO stage. The `po:idea` label must exist in the repository.
+
 ## Topology
 
 ```mermaid
 flowchart LR
+  PO([po:idea issue<br/>agent-product-owner<br/>/po approve]) -- workflow_dispatch --> route
   T([label agent-lab<br/>/agent plan<br/>clarification reply<br/>workflow_dispatch]) --> route
   route --> plan[[plan<br/>agent-plan.lock.yml]] --> pg{plan-gate}
   pg -- NEEDS_CLARIFICATION / BLOCKED --> fin
@@ -24,6 +47,8 @@ flowchart LR
 
 | File | Role |
 |---|---|
+| `.github/workflows/agent-product-owner.md` | gh-aw Product Owner: refines a `po:idea` issue in comments; publishes signed drafts |
+| `.github/workflows/agent-po-approve.yml` | Deterministic `/po approve`: applies the signed draft, labels, dispatches the pipeline |
 | `.github/workflows/agent-pipeline.yml` | Entry point and sequential orchestration (`needs`), human gate, bounded retry, escalation |
 | `.github/workflows/agent-iteration.yml` | Reusable implement ► CI ► review cycle, called at most twice |
 | `.github/workflows/agent-{plan,implement,review}.md` | gh-aw worker sources (`workflow_call`); compile to `.lock.yml` |

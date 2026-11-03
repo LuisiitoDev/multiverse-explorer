@@ -1,7 +1,7 @@
 # Implementation Plan: 3D Multiverse Globe Map (issue #50)
 
 **Spec**: [spec.md](./spec.md) — acceptance criteria live in its *Success Criteria* and *Acceptance Scenarios* sections; they are not restated here.
-**Base**: `fb5b3290f578d6c77d924c215c7b06724847851d` (main). **Status**: PLANNED — ready for human review; **not approved**. Workflow changes and the NASA texture download are human follow-ups (see `## Human follow-ups`) and do not block agent-owned work.
+**Base**: `471fe61d876bae0c3481c3fae981c7d4e3c81448` (main). **Status**: PLANNED — ready for human review; **not approved**. Workflow changes and the NASA texture download are human follow-ups (see `## Human follow-ups`) and do not block agent-owned work.
 
 ## 1. Verified facts (observed in repo at base)
 

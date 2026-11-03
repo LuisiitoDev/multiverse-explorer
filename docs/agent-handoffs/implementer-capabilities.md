@@ -4,7 +4,7 @@ What the Implementer sandbox can actually do. The Planner must plan agent work
 only inside this contract; anything else is a **human follow-up** listed in
 `plan.md` under `## Human follow-ups` and done by a human on the same PR branch
 after implementation and review, before merge. Keep this file in sync with
-`.github/workflows/agent-implement.md` (enforced by `tests/implementer-shell.test.cjs`).
+`.github/workflows/agent-implement.md` when either changes.
 
 ## Shell commands (unattended, no approval prompts)
 

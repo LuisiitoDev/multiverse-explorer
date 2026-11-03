@@ -139,7 +139,7 @@ a human completes them on the same PR branch before merging.
 ## Implementer capability contract
 
 `implementer-capabilities.md` is the single list of commands, network and
-publication limits of the Implementer sandbox; tests keep it in sync with
+publication limits of the Implementer sandbox; keep it in sync with
 `agent-implement.md`. The Implementer has 45 minutes, can run npm, dotnet and a
 standalone `bicep build/lint` CLI (installed by a trusted pre-agent step, used
 instead of `az bicep build`), and cannot use `curl`, `az`, `docker` or deploy.
@@ -175,8 +175,6 @@ waiting for approval (they get a unique concurrency group).
 ```bash
 gh aw compile agent-plan agent-implement agent-review   # regenerate locks after editing .md sources
 actionlint .github/workflows/agent-pipeline.yml .github/workflows/agent-iteration.yml .github/workflows/ci.yml
-npm install --no-save --no-audit --no-fund --ignore-scripts --prefix /tmp/agent-gate-test-deps ajv@8.17.1 ajv-formats@3.0.1
-AGENT_TEST_NODE_MODULES=/tmp/agent-gate-test-deps/node_modules CHECK_COMPILED_LOCK=1 node --test tests/*.test.cjs
 ```
 
 ### Implementer shell permissions
@@ -206,8 +204,8 @@ files. The remote PR head stayed unchanged; implement-gate then correctly
 refused to advance. These three exact paths are now included, without granting
 all docs or changing protected-file handling, workflow permissions or tokens.
 
-`publication-scope.json` describes the static allowed-files envelope. Regression
-tests require it to match the authored safe output. Plan-gate checks planned
+`publication-scope.json` describes the static allowed-files envelope and must
+match the `allowed-files` of the Implementer safe output. Plan-gate checks planned
 paths against that envelope before approval/implementation. This is a path
 compatibility check, not proof of credentials, protected-file acceptance or a
 successful push; those controls still apply during publication.
@@ -255,5 +253,5 @@ For a source update, regenerate **all three** gh-aw locks because they import th
 changed shared preparation. Compile on the fix branch before merging. Existing
 runs keep their original workflow revision; rerunning an old run does not install
 this patch. After merge, start a fresh pipeline from the Actions UI (issue number)
-or reapply `agent-lab`. No issue command is needed. Hosted success remains an
-integration check, not a result established by offline regression tests.
+or reapply `agent-lab`. No issue command is needed. Only a hosted run proves
+the pipeline end to end.

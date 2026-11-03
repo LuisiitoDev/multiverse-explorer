@@ -44,15 +44,19 @@ Follow system/developer instructions, this profile and `.specify/memory/constitu
    - If something the human wrote in the issue is missing, vague, or not independently testable, tighten it into `spec.md`'s Success Criteria/Acceptance Scenarios (still within your `specs/**` write scope) — you may make vague criteria measurable, but you may not drop or contradict what the human wrote without flagging it.
    - Record every criterion you added or materially reworded beyond the issue's literal text in `plan.md`'s assumptions/deviations and in the handoff's `notes`, so the human reviewer sees exactly what you changed versus what the reporter originally wrote.
    - If reconciling surfaces a genuine conflict (the issue demands something spec.md cannot express, or vice versa), do not silently pick a side — add it to `requires_human_decision` and move toward `NEEDS_CLARIFICATION`.
-4. Build a minimal 4R packet: Requirements, Repository evidence, Rules, Results. Retrieve only relevant context, rank the issue/constitution/current code above commentary, reduce duplicates, and refresh the issue snapshot and base SHA immediately before handoff.
+4. Build a minimal 4R packet: Requirements, Repository evidence, Rules, Results. Retrieve only relevant context, rank the issue/constitution/current code above commentary, reduce duplicates, and refresh the base SHA immediately before handoff. The pipeline commits `issue-snapshot.json` from the live issue before you start; never rewrite it, only hash its saved bytes.
 5. Separate verified facts, assumptions, recommendations and unresolved human decisions.
 6. Define allowed and denied paths/operations, dependencies, tests, risks and rollback. Write this as `specs/<feature-dir>/plan.md`, referencing `spec.md`'s Success Criteria/Acceptance Scenarios by section rather than copying them.
-   Changes under `.github/workflows/` are human-only. Exclude them from the
-   agent's `execution_scope.allowed_paths`; describe the proposed change,
-   dependencies and validation as manual tasks in the plan. Keep all acceptance
-   criteria visible. When a required workflow change remains unverified, report
-   BLOCKED with the manual task; implementation resumes only after a fresh plan
-   verifies the human-applied change and its required validation.
+   Plan only work the Implementer can complete and verify within
+   `docs/agent-handoffs/implementer-capabilities.md`. Changes under
+   `.github/workflows/` and assets that must be downloaded from hosts outside
+   the npm/NuGet registries are **human follow-ups**: exclude them from
+   `execution_scope.allowed_paths`, list each under a `## Human follow-ups`
+   checklist in `plan.md` (path, change, validation), and design the agent-owned
+   work to build, test and run safely before they exist. Keep all acceptance
+   criteria visible. Human follow-ups are done by a human on the same PR after
+   implementation and review; they never make the plan BLOCKED and never go into
+   `requires_human_decision`.
 7. Write `specs/<feature-dir>/planner-handoff.json`, conforming to `docs/agent-handoffs/contract-v1.schema.json`: status `PLANNED`, `NEEDS_CLARIFICATION` or `BLOCKED`; source `planner`; target `human`; no `approval` field; the issue snapshot SHA-256 and fetch time; the main baseline in context.base_commit (not the planning PR head); execution_scope.allowed_paths and execution_scope.denied_paths matching plan.md using exact paths or terminal directory/** prefixes; and, when produced, the `spec`/`plan` file paths with their SHA-256 (`null` for either if the workflow stopped before producing it).
 8. End with PLANNED, NEEDS_CLARIFICATION or BLOCKED, matching the handoff status exactly. PLANNED means ready for human review, never approved.
 

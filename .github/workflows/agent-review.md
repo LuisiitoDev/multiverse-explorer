@@ -72,6 +72,7 @@ tools:
 network:
   allowed:
   - defaults
+timeout-minutes: 30
 post-steps:
 - name: Publish exact-revision review evidence
   uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -84,9 +85,11 @@ safe-outputs:
   submit-pull-request-review:
     target: ${{ inputs.pr_number }}
     max: 1
+    # The PR author is github-actions[bot], the same identity as the safe-output
+    # token; GitHub rejects REQUEST_CHANGES on your own PR. The decision lives in
+    # the review artifact, which the pipeline routes on.
     allowed-events:
     - COMMENT
-    - REQUEST_CHANGES
   add-comment:
     target: ${{ inputs.issue_number }}
     max: 1
@@ -111,8 +114,12 @@ PASS is a recommendation, never a GitHub approval. Each finding includes id,
 severity, path, description and evidence. The report is uploaded as a workflow
 artifact; never commit/push it onto the branch being reviewed.
 
-Submit COMMENT for PASS/BLOCKED/ESCALATED or REQUEST_CHANGES for defects, anchored
-to context.expected_head_sha, then post a concise issue summary. Never execute
+Always submit the GitHub review with event COMMENT (never REQUEST_CHANGES or
+APPROVE), anchored to context.expected_head_sha and starting with the decision,
+then post a concise issue summary. The decision itself is the artifact's
+`decision`. Items in the approved plan's `## Human follow-ups` (and matching
+`MANUAL FOLLOW-UP:` deviations) are expected open work for a human, not
+defects: mention them, but never use them to justify REQUEST_CHANGES. Never execute
 commands, modify source, approve, merge or deploy. The pipeline owns the one
 bounded remediation iteration and validates the resulting report against the
 current remote head before routing further work.

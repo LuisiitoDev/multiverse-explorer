@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0.0",
   "status": "IMPLEMENTED",
-  "transition_id": "6bf65b11666b90381efcf79fcf1cc170",
+  "transition_id": "e76138d3873db6d6f9a10420d478b6ec",
   "issue_number": 50,
   "pr_number": 74,
   "plan_sha256": "5a7f0c45ae6d098dc49d66eb74253fc3c6a88780d0e895658323e35e820ba35a",
-  "base_commit": "04eedc93c5cab8fc96f5921a2aae3585b0c2a0a8",
+  "base_commit": "838d6a30f687def1668c713e066f06ec0a826c82",
   "files_changed": [
     "THIRD_PARTY_NOTICES.md",
     "docs/blue-green-deployment.md",
@@ -63,18 +63,17 @@
     },
     {
       "command": "bicep build infra/main.bicep --stdout",
-      "result": "not_run",
-      "evidence": "Command denied by the runner permission policy (no interactive approval); Bicep not validated locally"
+      "result": "passed",
+      "evidence": "exit 0 (local only, not CI-verified)"
     },
     {
       "command": "bicep lint infra/main.bicep",
-      "result": "not_run",
-      "evidence": "Command denied by the runner permission policy; Bicep not validated locally"
+      "result": "passed",
+      "evidence": "exit 0, no diagnostics (local only, not CI-verified)"
     }
   ],
   "deviations": [
     "Added npm packages with exact pins: three@0.187.0, @react-three/fiber@9.8.2, @react-three/drei@10.7.9 (dependencies) and @types/three@0.187.0 (devDependency); plan named no exact versions (latest at install time).",
-    "Bicep validation (build/lint) could not be run: commands were denied by the runner. Reviewer/CI must validate infra.",
     "Baseline main-bundle size could not be measured (git stash denied); only post-change sizes reported. The 3D code is verified to be in a separate lazy chunk.",
     "frontend/docker/40-runtime-config.sh has no executable bit in the working tree; the Dockerfile runs chmod +x.",
     "frontend/public/textures/README.txt added as a placeholder keeping the directory; remove when the texture is added.",

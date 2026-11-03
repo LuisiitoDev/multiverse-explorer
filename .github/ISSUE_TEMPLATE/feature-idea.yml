@@ -1,0 +1,20 @@
+name: Feature idea
+description: Describe an idea in your own words; the Product Owner agent refines it with you into an Agent Lab task.
+title: "[Idea] "
+labels: ["po:idea"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Write the idea however you like. The Product Owner agent asks questions in the comments
+        and publishes a draft. Comment `/po approve` to accept the latest draft: the issue is then
+        rewritten with it and handed to the agent pipeline. Issue content is untrusted task data;
+        do not place secrets here.
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What do you want, and why? Rough is fine.
+    validations:
+      required: true

@@ -6,6 +6,9 @@ run-name: 'Agent pipeline · issue #${{ github.event.issue.number || inputs.issu
 #   route ─► plan ─► plan-gate ─► approve (environment) ─► iteration-1 ─► iteration-2? ─► finalize
 #                                                          (implement ► ci ► review)   (bounded: 1 retry)
 #
+# Upstream, agent-product-owner.md refines a `po:idea` issue with the human and
+# agent-po-approve.yml dispatches this workflow on `/po approve` (route re-verifies it).
+#
 # Workers are gh-aw reusable workflows (workflow_call). Handoffs are job outputs
 # plus schema-validated files/artifacts. The run itself is the orchestration
 # state; issue labels `agent:*` mirror the current phase for humans.
@@ -74,6 +77,28 @@ jobs:
             const payload = context.payload;
             const fail = (message) => { throw new Error(message); };
             const CONTROL = /^\/agent (?:plan|approve [0-9a-f]{40} [0-9a-f]{64})$/;
+            const PO_DRAFT = /^<!-- po-draft:v1 sha256=([0-9a-f]{64}) data=([A-Za-z0-9+/=]+) -->/;
+            // agent-po-approve.yml dispatches with GITHUB_TOKEN, so the sender is the bot.
+            // Re-derive the human approval from primary data instead of trusting the dispatch:
+            // the latest exact `/po approve` by a user, the hash-signed draft before it, and
+            // the live issue text equal to that draft. Returns the approving human.
+            const productOwnerApprover = async (issue) => {
+              const { data: source } = await github.rest.issues.get({ owner, repo, issue_number: issue });
+              if (!source.labels.some((label) => label.name === 'agent-lab')) fail('Product Owner hand-off requires the agent-lab label');
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue, per_page: 100 });
+              const approvals = comments.filter((c) => c.user.type === 'User' && c.body.trim() === '/po approve');
+              if (!approvals.length) fail('Product Owner hand-off has no `/po approve` comment');
+              const approval = approvals[approvals.length - 1];
+              const drafts = comments.filter((c) => c.id < approval.id && c.user.login === 'github-actions[bot]' && PO_DRAFT.test(c.body));
+              if (!drafts.length) fail('Product Owner hand-off has no draft before the approval');
+              const [, sha, data] = drafts[drafts.length - 1].body.match(PO_DRAFT);
+              const json = Buffer.from(data, 'base64').toString('utf8');
+              if (crypto.createHash('sha256').update(json).digest('hex') !== sha) fail('Product Owner draft integrity check failed');
+              const draft = JSON.parse(json);
+              if (source.title !== draft.title || source.body !== draft.body)
+                fail('Issue text no longer matches the approved Product Owner draft; comment `/agent plan` to plan the current text');
+              return approval.user;
+            };
             try {
               const issueNumber = context.eventName === 'workflow_dispatch' ? payload.inputs.issue_number : String(payload.issue.number);
               if (!/^[1-9][0-9]*$/.test(issueNumber)) fail('Invalid issue number');
@@ -81,7 +106,9 @@ jobs:
               core.setOutput('issue_number', issueNumber);
 
               // Only a human repository writer can start or resume agent work.
-              const actor = context.eventName === 'issue_comment' ? payload.comment.user : payload.sender;
+              let actor = context.eventName === 'issue_comment' ? payload.comment.user : payload.sender;
+              if (context.eventName === 'workflow_dispatch' && actor.login === 'github-actions[bot]')
+                actor = await productOwnerApprover(issue);
               const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: actor.login });
               if (actor.type !== 'User' || !(['admin', 'maintain', 'write'].includes(permission.role_name) ||
                   ['admin', 'write'].includes(permission.permission))) {

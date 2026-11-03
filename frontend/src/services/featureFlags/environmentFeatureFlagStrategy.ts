@@ -3,6 +3,7 @@ import type { FeatureFlagKey, FeatureFlagStrategy } from '../../types/featureFla
 const ENV_VAR_BY_FLAG: Record<FeatureFlagKey, string> = {
   characterModalV2: 'VITE_FEATURE_CHARACTER_MODAL_V2',
   myMultiverse: 'VITE_FEATURE_MY_MULTIVERSE',
+  globe3d: 'VITE_FEATURE_GLOBE_3D',
 }
 
 const TRUTHY = new Set(['true', '1', 'on', 'enabled'])
@@ -13,7 +14,7 @@ const FALSY = new Set(['false', '0', 'off', 'disabled'])
  * typo in the environment falls through to the defaults instead of silently
  * disabling a feature that was meant to be on.
  */
-function parseDecision(raw: unknown): boolean | undefined {
+export function parseDecision(raw: unknown): boolean | undefined {
   if (raw === undefined || raw === null || raw === '') {
     return undefined
   }

@@ -1927,6 +1927,62 @@ p {
   font-size: 0.9rem;
 }
 
+.multiverse-view__modes {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.multiverse-view__mode {
+  padding: 0.4rem 1.1rem;
+  border: 1px solid var(--portal-green);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--portal-green);
+  cursor: pointer;
+  letter-spacing: 0.12em;
+}
+
+.multiverse-view__mode[aria-pressed='true'] {
+  background: var(--portal-green);
+  color: #02040a;
+}
+
+.multiverse-globe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.multiverse-globe canvas {
+  height: clamp(420px, 62vh, 640px) !important;
+  border-radius: 12px;
+}
+
+.multiverse-globe__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.multiverse-globe__item {
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--text-secondary);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.multiverse-globe__item[aria-pressed='true'] {
+  border-color: var(--portal-green);
+  color: var(--portal-green);
+}
+
 .multiverse-map {
   position: relative;
   overflow-x: auto;

@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0.0",
+  "status": "IMPLEMENTED",
+  "transition_id": "6bf65b11666b90381efcf79fcf1cc170",
+  "issue_number": 50,
+  "pr_number": 74,
+  "plan_sha256": "5a7f0c45ae6d098dc49d66eb74253fc3c6a88780d0e895658323e35e820ba35a",
+  "base_commit": "04eedc93c5cab8fc96f5921a2aae3585b0c2a0a8",
+  "files_changed": [
+    "THIRD_PARTY_NOTICES.md",
+    "docs/blue-green-deployment.md",
+    "docs/canary-deployment.md",
+    "frontend/Dockerfile",
+    "frontend/docker/40-runtime-config.sh",
+    "frontend/nginx.conf",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/public/textures/README.txt",
+    "frontend/src/MultiverseGlobe.test.tsx",
+    "frontend/src/components/GlobeErrorBoundary.tsx",
+    "frontend/src/components/MultiverseGlobe.tsx",
+    "frontend/src/components/MultiverseGlobeFallback.tsx",
+    "frontend/src/components/MultiverseMapView.tsx",
+    "frontend/src/main.tsx",
+    "frontend/src/services/featureFlags/environmentFeatureFlagStrategy.ts",
+    "frontend/src/services/featureFlags/index.ts",
+    "frontend/src/services/featureFlags/runtimeFeatureFlagStrategy.ts",
+    "frontend/src/services/featureFlags/runtimeFeatureFlagStrategy.test.ts",
+    "frontend/src/styles.css",
+    "frontend/src/types/featureFlag.ts",
+    "frontend/src/utils/globeLayout.ts",
+    "frontend/src/utils/globeLayout.test.ts",
+    "frontend/src/utils/webgl.ts",
+    "infra/main.bicep",
+    "infra/modules/containerapp.bicep",
+    "infra/modules/environment.bicep"
+  ],
+  "requirements_addressed": [
+    "FR-001..FR-005, FR-009, FR-010: lazy 3D globe with atmosphere, starfield, markers, orbit controls, detail panel, shared loading/error/empty states, WebGL fallback",
+    "FR-003/SC-002: pure deterministic globeLayout with unit tests",
+    "FR-006/FR-007: 2D/3D toggle inside MultiverseMapView, behind the globe3d flag (default off)",
+    "FR-008/SC-008: runtime /config.json FEATURE_* strategy, fail-closed; container script renders config at start",
+    "FR-011/SC-009: THIRD_PARTY_NOTICES.md",
+    "FR-012: Bicep modules with Multiple revisions, activeLabel (blue/green) and FEATURE_GLOBE_3D env param",
+    "FR-015: docs/blue-green-deployment.md replaces docs/canary-deployment.md",
+    "FR-018: no backend changes"
+  ],
+  "local_validation": [
+    {
+      "command": "npm test --prefix frontend -- --run",
+      "result": "passed",
+      "evidence": "9 files, 133 tests passed (local only, not CI-verified)"
+    },
+    {
+      "command": "npm run lint --prefix frontend",
+      "result": "passed",
+      "evidence": "0 errors; 1 pre-existing warning in FavoritesProvider.tsx"
+    },
+    {
+      "command": "npm run build --prefix frontend",
+      "result": "passed",
+      "evidence": "Main chunk index-*.js 258.90 kB (79.24 kB gzip); 3D library in separate lazy chunk MultiverseGlobe-*.js 941.92 kB (250.18 kB gzip). Pre-change baseline size not measured (git stash was denied)."
+    },
+    {
+      "command": "bicep build infra/main.bicep --stdout",
+      "result": "not_run",
+      "evidence": "Command denied by the runner permission policy (no interactive approval); Bicep not validated locally"
+    },
+    {
+      "command": "bicep lint infra/main.bicep",
+      "result": "not_run",
+      "evidence": "Command denied by the runner permission policy; Bicep not validated locally"
+    }
+  ],
+  "deviations": [
+    "Added npm packages with exact pins: three@0.187.0, @react-three/fiber@9.8.2, @react-three/drei@10.7.9 (dependencies) and @types/three@0.187.0 (devDependency); plan named no exact versions (latest at install time).",
+    "Bicep validation (build/lint) could not be run: commands were denied by the runner. Reviewer/CI must validate infra.",
+    "Baseline main-bundle size could not be measured (git stash denied); only post-change sizes reported. The 3D code is verified to be in a separate lazy chunk.",
+    "frontend/docker/40-runtime-config.sh has no executable bit in the working tree; the Dockerfile runs chmod +x.",
+    "frontend/public/textures/README.txt added as a placeholder keeping the directory; remove when the texture is added.",
+    "MANUAL FOLLOW-UP: .github/workflows/cd.yml — rewrite to deploy to the inactive blue/green label, smoke-test (incl. /config.json), no swap, remove canary",
+    "MANUAL FOLLOW-UP: .github/workflows/bluegreen-swap.yml — new workflow_dispatch, production approval, swap 100% traffic between labels",
+    "MANUAL FOLLOW-UP: .github/workflows/set-feature-flag.yml — new workflow_dispatch to set FEATURE_GLOBE_3D=true|false and verify /config.json",
+    "MANUAL FOLLOW-UP: .github/workflows/infra.yml — add bicep build of infra/main.bicep and the new activeLabel/featureGlobe3d parameters (the routeTrafficToLatestRevision parameter was replaced by activeLabel)",
+    "MANUAL FOLLOW-UP: frontend/public/textures/earth-blue-marble.jpg — add NASA Blue Marble image (<= 2k px); globe uses a fallback material until then"
+  ]
+}

@@ -4,8 +4,13 @@ import type {
 } from "../../types/featureFlag";
 import { createCompositeFeatureFlagStrategy } from "./compositeFeatureFlagStrategy";
 import { createEnvironmentFeatureFlagStrategy } from "./environmentFeatureFlagStrategy";
+import { createRuntimeFeatureFlagStrategy } from "./runtimeFeatureFlagStrategy";
 import { createStaticFeatureFlagStrategy } from "./staticFeatureFlagStrategy";
 
+export {
+  createRuntimeFeatureFlagStrategy,
+  loadRuntimeFeatureConfig,
+} from "./runtimeFeatureFlagStrategy";
 export { createCompositeFeatureFlagStrategy } from "./compositeFeatureFlagStrategy";
 export { createEnvironmentFeatureFlagStrategy } from "./environmentFeatureFlagStrategy";
 export { createStaticFeatureFlagStrategy } from "./staticFeatureFlagStrategy";
@@ -16,6 +21,7 @@ export { createStaticFeatureFlagStrategy } from "./staticFeatureFlagStrategy";
 export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, boolean> = {
   characterModalV2: false,
   myMultiverse: false,
+  globe3d: false,
 };
 
 /**
@@ -23,8 +29,11 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, boolean> = {
  * the single place that names concrete strategies — adding a remote source
  * later means editing this function and nothing downstream of it.
  */
-export function createDefaultFeatureFlagStrategy(): FeatureFlagStrategy {
+export function createDefaultFeatureFlagStrategy(
+  runtimeConfig: Record<string, unknown> = {},
+): FeatureFlagStrategy {
   return createCompositeFeatureFlagStrategy([
+    createRuntimeFeatureFlagStrategy(runtimeConfig),
     createEnvironmentFeatureFlagStrategy(),
     createStaticFeatureFlagStrategy(DEFAULT_FEATURE_FLAGS),
   ]);

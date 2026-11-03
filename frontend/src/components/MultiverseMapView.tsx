@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { useFeatureFlag } from '../hooks/useFeatureFlag'
 import { fetchLocations } from '../services/rickAndMortyApi'
 import type { Location } from '../types/location'
+import { isWebGLAvailable } from '../utils/webgl'
 import EmptyState from './EmptyState'
 import ErrorState from './ErrorState'
+import GlobeErrorBoundary from './GlobeErrorBoundary'
 import LoadingPortal from './LoadingPortal'
 import LocationDetailPanel from './LocationDetailPanel'
+import MultiverseGlobeFallback from './MultiverseGlobeFallback'
 import MultiverseMap from './MultiverseMap'
+
+const MultiverseGlobe = lazy(() => import('./MultiverseGlobe'))
+
+type MapMode = '2d' | '3d'
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
@@ -27,7 +35,9 @@ function MultiverseMapView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [retryToken, setRetryToken] = useState(0)
-
+  const globeEnabled = useFeatureFlag('globe3d')
+  const [mode, setMode] = useState<MapMode>('2d')
+  const showGlobe = globeEnabled && mode === '3d'
   useEffect(() => {
     const controller = new AbortController()
 
@@ -83,6 +93,22 @@ function MultiverseMapView() {
         </p>
       </header>
 
+      {globeEnabled && (
+        <div className="multiverse-view__modes" role="group" aria-label="Map view">
+          {(['2d', '3d'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              className="multiverse-view__mode"
+              aria-pressed={mode === value}
+              onClick={() => setMode(value)}
+            >
+              {value === '2d' ? '2D' : '3D'}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isLoading && <LoadingPortal />}
 
       {!isLoading && error && (
@@ -99,12 +125,27 @@ function MultiverseMapView() {
 
       {!isLoading && !error && locations.length > 0 && (
           <>
-            <MultiverseMap
-              locations={locations}
-              activeLocationId={selectedLocation?.id ?? null}
-              onSelectLocation={handleSelect}
-            />
-
+            {showGlobe ? (
+              isWebGLAvailable() ? (
+                <GlobeErrorBoundary fallback={<MultiverseGlobeFallback onUse2D={() => setMode('2d')} />}>
+                  <Suspense fallback={<LoadingPortal />}>
+                    <MultiverseGlobe
+                      locations={locations}
+                      activeLocationId={selectedLocation?.id ?? null}
+                      onSelectLocation={handleSelect}
+                    />
+                  </Suspense>
+                </GlobeErrorBoundary>
+              ) : (
+                <MultiverseGlobeFallback onUse2D={() => setMode('2d')} />
+              )
+            ) : (
+              <MultiverseMap
+                locations={locations}
+                activeLocationId={selectedLocation?.id ?? null}
+                onSelectLocation={handleSelect}
+              />
+            )}
           </>
         )}
 

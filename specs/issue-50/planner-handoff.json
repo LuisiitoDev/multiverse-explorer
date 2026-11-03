@@ -1,16 +1,16 @@
 {
   "schema_version": "1.0.0",
-  "status": "BLOCKED",
+  "status": "PLANNED",
   "source": "planner",
   "target": "human",
-  "created_at": "2026-11-02T23:07:00Z",
+  "created_at": "2026-11-03T00:12:30Z",
   "issue": {
     "number": 50,
     "url": "https://github.com/LuisiitoDev/multiverse-explorer/issues/50",
-    "snapshot_sha256": "8796d3acefdd7c56c076f9bf5dd3452603c084a76b5a0251c2c29a034f75d97c",
-    "fetched_at": "2026-11-02T23:05:30Z"
+    "snapshot_sha256": "17c9eeb74f762f9128ab9627d2d67cfd40447474287f92a2580aa2d2e84ecbcd",
+    "fetched_at": "2026-11-03T00:12:01Z"
   },
-  "base_commit": "fb5b3290f578d6c77d924c215c7b06724847851d",
+  "base_commit": "0b94b49c20ce725184bab2f3815c0cb608eeed60",
   "spec": {
     "feature_directory": "specs/issue-50",
     "spec_file": "specs/issue-50/spec.md",

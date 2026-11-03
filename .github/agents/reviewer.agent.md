@@ -206,6 +206,8 @@ next (implementer, planner, or the human CODEOWNER).
 
 Read `/tmp/gh-aw/agent-context.json` first. Its expected_head_sha is the exact remote
 revision to review. The controller owns dispatch, deduplication and the single remediation
-attempt. Submit only COMMENT or REQUEST_CHANGES, anchored to that revision; PASS is a
-recommendation and never a GitHub APPROVE event. Use the review schema's exact finding
+attempt. Submit the GitHub review only as a COMMENT event, anchored to that revision; the
+verdict (PASS, REQUEST_CHANGES, BLOCKED, ESCALATED) lives in the review artifact's `decision`
+and is stated at the top of the comment. PASS is a recommendation and never a GitHub APPROVE
+event. The plan's `## Human follow-ups` are expected open work, not defects. Use the review schema's exact finding
 fields: id, severity, path, description, evidence. No local builds or shell tools are available.

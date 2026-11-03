@@ -108,12 +108,51 @@ baseline, passing local checks) and that new commits were published. `ci.yml`
 then runs **in the same run** on that exact remote head; any failing job stops
 the iteration. The Reviewer writes `review-handoff.json` as an artifact;
 `review-gate` validates layout, schema, identity, reviewed head and
-decision/finding consistency. The Reviewer may COMMENT or REQUEST_CHANGES, never
-APPROVE.
+decision/finding consistency. The Reviewer submits **COMMENT reviews only**:
+the canonical PR is authored by `github-actions[bot]`, the same identity as the
+safe-output token, and GitHub rejects `REQUEST_CHANGES`/`APPROVE` on your own PR.
+The verdict (PASS, REQUEST_CHANGES, BLOCKED, ESCALATED) lives in the review
+artifact's `decision`, which is what the pipeline routes on.
+
+When `ci.yml` is called by the pipeline it receives the PR number and head
+branch, so SonarCloud records a pull-request analysis instead of a `main`
+branch analysis of unmerged code.
 
 `REQUEST_CHANGES` triggers `iteration-2` with the findings as remediation
 input. A second `REQUEST_CHANGES` escalates. `PASS` sets
 `agent:ready-for-human-review`; humans own merge.
+
+## Human follow-ups
+
+Some work cannot be done by agents: workflow files (the token lacks the
+`workflows` scope and workflow changes are human-only) and assets that must be
+downloaded from hosts outside the npm/NuGet registries (for example a NASA
+texture). The Planner reads `implementer-capabilities.md` and lists such work in
+`plan.md` under `## Human follow-ups` (path, change, validation). Follow-ups are
+**not blocking**: the plan is PLANNED, the Implementer builds the agent-owned
+scope so it works without them (for example a fallback material), records each
+one in `deviations` as `MANUAL FOLLOW-UP: <path> — <change>`, and returns
+IMPLEMENTED when its own tasks and checks pass. The Reviewer does not treat
+listed follow-ups as defects. On PASS, `finalize` posts them as a checklist;
+a human completes them on the same PR branch before merging.
+
+## Implementer capability contract
+
+`implementer-capabilities.md` is the single list of commands, network and
+publication limits of the Implementer sandbox; tests keep it in sync with
+`agent-implement.md`. The Implementer has 45 minutes, can run npm, dotnet and a
+standalone `bicep build/lint` CLI (installed by a trusted pre-agent step, used
+instead of `az bicep build`), and cannot use `curl`, `az`, `docker` or deploy.
+Plans that need anything else must turn it into a human follow-up.
+
+## While a run is active
+
+A plan is bound to the issue text, human issue comments and `main`. Until the
+run finishes, **do not edit or comment on the issue and do not merge to `main`**;
+any of those stops the run at the next gate (the `PLANNED` comment repeats this).
+`route` records the issue snapshot itself before every planning run, so a
+planner can no longer hand off a stale copy. When a stage fails, `finalize`
+names the failed nested job and step with a link, not just the stage.
 
 ## Recovery
 
@@ -124,6 +163,7 @@ There is no durable state to repair: the workflow run *is* the state.
 | Transient failure (runner, API, model) | **Re-run failed jobs** on the run |
 | Gate blocked (stale plan, moved head, revoked approval) | Fix the cause, then `/agent plan` |
 | `main` moved while waiting for approval | `/agent plan` (route updates the branch and replans) |
+| Issue edited/commented while a run was active | `/agent plan` (route records the current issue and replans) |
 | Want a fresh revision | `/agent plan` or manual dispatch (queued behind any active run for the issue) |
 | Abandon a waiting run | Reject the deployment or cancel the run |
 
@@ -173,15 +213,10 @@ compatibility check, not proof of credentials, protected-file acceptance or a
 successful push; those controls still apply during publication.
 
 Workflow files under `.github/workflows/` are human-only and are excluded from
-the Implementer's publication envelope. The Planner records required workflow
-changes, dependencies and verification as manual tasks in the plan, never in
-the agent's allowed execution paths. If required manual work is unfinished,
-the Planner returns BLOCKED before implementation; the human applies and
-validates it, then a fresh planning run verifies that work. The Implementer
-also reports PARTIAL if it discovers an unmet manual dependency. Neither agent
-may omit acceptance criteria to make a run pass. A plan with workflow paths in the agent's allowed scope is
-rejected by plan-gate before implementation. The publisher uses its existing
-GitHub Actions token and requires no publisher GitHub App configuration.
+the Implementer's publication envelope (see **Human follow-ups** below). A plan
+with workflow paths in the agent's allowed scope is rejected by plan-gate before
+implementation. The publisher uses its existing GitHub Actions token and
+requires no publisher GitHub App configuration.
 
 The immediate push-tool response queues an intent. Only the reusable workflow's
 `push_commit_sha` output, an open canonical PR and its actual remote history

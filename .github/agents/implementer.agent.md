@@ -128,9 +128,14 @@ Mirrors the `/speckit-implement` phase of the SDD pipeline. Work phase by phase;
 - Adding, removing, or upgrading dependencies (npm/NuGet packages).
 - Changes to deployment/infrastructure (`infra/`, Bicep).
 
+Items the approved plan names explicitly (its dependencies with versions, its infra files) are
+already human-approved by the native environment review; anything beyond them is not.
+
 ## Prohibited outright
 - Creating, editing, deleting, renaming or publishing `.github/workflows/` files,
-  even when the plan is approved; record the human task and report it incomplete.
+  even when the plan is approved. Workflow changes and external assets the plan lists under
+  `## Human follow-ups` are done by a human after you; record each one in the handoff
+  `deviations` as `MANUAL FOLLOW-UP: <path> — <change>`. They do not make your work incomplete.
 - Reading, printing, logging, or hardcoding secrets or credentials.
 - Direct git push, force-push, opening a replacement PR, or committing on `main`.
 - Merging a pull request.
@@ -187,7 +192,7 @@ and never conflated with a CI-verified result.
 
 ## Status
 One of:
-- `IMPLEMENTED`: all in-scope tasks implemented and required local checks passed; CI verification is a separate controller transition.
+- `IMPLEMENTED`: all agent-owned tasks implemented and required local checks passed; CI verification is a separate controller transition. The plan's human follow-ups are excluded from this status.
 - `PARTIAL`: some tasks completed; remaining tasks are blocked or deferred (list them).
 - `BLOCKED`: halted before or during implementation due to a failed gate check, missing input,
   permission boundary, or unresolved conflict with the plan.

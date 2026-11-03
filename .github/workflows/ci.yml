@@ -19,6 +19,16 @@ on:
         required: false
         type: string
         default: ''
+      pr_number:
+        description: Pull request being validated, so SonarCloud records a PR analysis instead of a main-branch one
+        required: false
+        type: string
+        default: ''
+      head_ref:
+        description: Head branch of that pull request
+        required: false
+        type: string
+        default: ''
     secrets:
       SONAR_TOKEN:
         required: false
@@ -127,6 +137,7 @@ jobs:
               -Dsonar.sources=.
               -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
               -Dsonar.coverage.exclusions=**/*.test.tsx,**/*.test.ts,**/test/**,frontend/src/main.tsx,**/*.config.ts
+              ${{ inputs.pr_number && format('-Dsonar.pullrequest.key={0} -Dsonar.pullrequest.branch={1} -Dsonar.pullrequest.base=main', inputs.pr_number, inputs.head_ref) || '' }}
         env:
           GIT_HUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

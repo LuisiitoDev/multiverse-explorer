@@ -1,6 +1,9 @@
 ---
 name: Reviewer stage
 'on':
+  # agent-po-approve.yml dispatches agent-pipeline.yml with GITHUB_TOKEN, so the
+  # actor is github-actions[bot]; route has already re-verified the human approval.
+  bots: [github-actions]
   workflow_call:
     inputs:
       issue_number:

@@ -118,9 +118,20 @@ steps:
     dotnet-version: '10.0.x'
 - name: Install standalone Bicep CLI
   # Trusted step outside the agent sandbox; the agent only runs `bicep build/lint`.
+  # GitHub-hosted ubuntu-24.04 preinstalls Bicep at /usr/local/bin (visible in the
+  # AWF chroot through the read-only /usr mount), so the Azure CLI installer adds
+  # nothing (run 24). Only when the image lacks it, download a pinned release and
+  # verify its SHA-256 before installing.
+  env:
+    BICEP_VERSION: v0.48.1
+    BICEP_SHA256: b09ec25a9d376c1f8e33ede6ed22b587f915ad68488d5db77a6f9541748c7f6e
   run: |
-    az bicep install
-    sudo install -m 0755 "$HOME/.azure/bin/bicep" /usr/local/bin/bicep
+    if ! command -v bicep >/dev/null 2>&1; then
+      curl -fsSL --retry 3 -o "$RUNNER_TEMP/bicep" "https://github.com/Azure/bicep/releases/download/${BICEP_VERSION}/bicep-linux-x64"
+      echo "${BICEP_SHA256}  $RUNNER_TEMP/bicep" | sha256sum -c -
+      sudo install -m 0755 "$RUNNER_TEMP/bicep" /usr/local/bin/bicep
+    fi
+    command -v bicep
     bicep --version
 safe-outputs:
   push-to-pull-request-branch:

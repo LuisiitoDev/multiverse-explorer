@@ -158,6 +158,29 @@ jobs:
                 core.notice(`Updated PR #${prNumber} with main; new head ${pr.head.sha}`);
               }
 
+              // Deterministic issue snapshot: trusted code, not the LLM, records the
+              // live issue so plan-gate never compares against a stale copy.
+              const snapshotPath = `specs/issue-${issue}/issue-snapshot.json`;
+              const snapshot = JSON.stringify({ number: source.number, title: source.title, body: source.body });
+              const existing = await github.rest.repos.getContent({ owner, repo, path: snapshotPath, ref: pr.head.sha }).catch((error) => {
+                if (error.status === 404) return null;
+                throw error;
+              });
+              const recorded = existing && !Array.isArray(existing.data) && existing.data.type === 'file'
+                ? Buffer.from(existing.data.content, 'base64').toString('utf8') : null;
+              if (recorded !== snapshot) {
+                const { data: written } = await github.rest.repos.createOrUpdateFileContents({ owner, repo, branch: pr.head.ref,
+                  path: snapshotPath, message: `Record issue #${issue} snapshot for planning`,
+                  content: Buffer.from(snapshot).toString('base64'), ...(existing ? { sha: existing.data.sha } : {}) });
+                let synced = false;
+                for (let i = 0; i < 6 && !synced; i++) {
+                  ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
+                  synced = pr.head.sha === written.commit.sha;
+                  if (!synced) await new Promise((resolve) => setTimeout(resolve, 2000));
+                }
+                if (!synced) fail(`PR #${prNumber} moved while recording the issue snapshot; retry \`/agent plan\``);
+              }
+
               // Human-decision digest: bot messages and control commands excluded.
               const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue, per_page: 100 });
               const human = comments.filter((c) => c.user.type === 'User' && !CONTROL.test(c.body.trim()))
@@ -266,10 +289,10 @@ jobs:
 
               const { data: current } = await github.rest.issues.get({ owner, repo, issue_number: issue });
               const snapshotBytes = await file(`${dir}/issue-snapshot.json`, head);
-              if (sha256(snapshotBytes) !== handoff.issue.snapshot_sha256) fail('Issue snapshot hash mismatch');
+              if (sha256(snapshotBytes) !== handoff.issue.snapshot_sha256) fail('Planner handoff does not hash the pipeline-recorded issue snapshot; comment `/agent plan` to replan');
               const snapshot = JSON.parse(snapshotBytes.toString('utf8'));
               if (Object.keys(snapshot).length !== 3 || snapshot.number !== current.number ||
-                  snapshot.title !== current.title || snapshot.body !== current.body) fail('Issue snapshot is stale');
+                  snapshot.title !== current.title || snapshot.body !== current.body) fail('The issue title/body was edited while planning ran (or the planner rewrote the pipeline snapshot); comment `/agent plan` to replan from the current issue');
               for (const [kind, pathKey, hashKey] of [['spec', 'spec_file', 'spec_sha256'], ['plan', 'plan_file', 'plan_sha256']]) {
                 const artifact = handoff[kind];
                 if (!artifact) continue;
@@ -310,7 +333,10 @@ jobs:
                 await github.rest.issues.createComment({ owner, repo, issue_number: issue, body:
                   `<!-- agent-pipeline -->\nPlanner: **PLANNED** on PR #${pr.number}. Review this exact revision:\n\n` +
                   `- Head: \`${head}\`\n- Spec SHA-256: \`${handoff.spec.spec_sha256}\`\n- Plan SHA-256: \`${handoff.plan.plan_sha256}\`\n\n` +
-                  `Approve the pending \`implementation-approval\` deployment in [this run](${runUrl}) to continue. No issue command is required.` });
+                  `Approve the pending \`implementation-approval\` deployment in [this run](${runUrl}) to continue. No issue command is required.\n\n` +
+                  `Until this run finishes, do not edit or comment on this issue and do not merge to \`main\`: ` +
+                  `the plan is bound to the current issue text, human comments and \`main\`, so any of those changes stops the run. ` +
+                  `Human follow-ups in the plan (for example workflow files or assets) are done on this PR after the agents finish.` });
               }
               core.setOutput('status', status);
               core.setOutput('head_sha', head);
@@ -442,6 +468,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      actions: read
+      contents: read
       issues: write
     steps:
       - name: Publish phase and summary
@@ -460,10 +488,43 @@ jobs:
             const failed = order.find((job) => ['failure', 'cancelled'].includes(needs[job].result));
             const last = needs['iteration-2'].result === 'success' ? needs['iteration-2'] : needs['iteration-1'];
             let phase, message;
+            // Name the exact failed job/step (reusable workflows nest them) so the
+            // human starts diagnosis from evidence, not from "job failed".
+            const diagnose = async () => {
+              try {
+                const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun,
+                  { owner, repo, run_id: context.runId, filter: 'latest', per_page: 100 });
+                const broken = jobs.filter((j) => ['failure', 'cancelled', 'timed_out'].includes(j.conclusion));
+                if (!broken.length) return '';
+                return '\n\nFailed jobs:\n' + broken.slice(0, 5).map((j) => {
+                  const step = (j.steps || []).find((s) => ['failure', 'cancelled', 'timed_out'].includes(s.conclusion));
+                  return `- [\`${j.name}\`](${j.html_url})${step ? ` — step \`${step.name}\`` : ''} (${j.conclusion})`;
+                }).join('\n');
+              } catch (error) {
+                core.warning(`Could not list failed jobs: ${error.message}`);
+                return '';
+              }
+            };
+            // Human-only follow-ups the Implementer recorded, as a merge checklist.
+            const followUps = async (head) => {
+              try {
+                const { data } = await github.rest.repos.getContent({ owner, repo, ref: head,
+                  path: `specs/issue-${issueNumber}/implementation-handoff.json` });
+                const report = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
+                const items = (report.deviations || []).filter((d) => typeof d === 'string' && d.startsWith('MANUAL FOLLOW-UP:'))
+                  .map((d) => `- [ ] ${d.slice('MANUAL FOLLOW-UP:'.length).trim()}`);
+                return items.length ? `\n\nHuman follow-ups to finish on this PR before merging:\n${items.join('\n')}` : '';
+              } catch (error) {
+                core.warning(`Could not read human follow-ups: ${error.message}`);
+                return '';
+              }
+            };
             if (failed) {
               const blocker = needs[failed].outputs.blocker;
               phase = blocker ? 'agent:blocked' : 'agent:escalated';
-              message = `**${blocker ? 'BLOCKED' : 'ESCALATED'}** at \`${failed}\`: ${blocker || 'job failed or approval was rejected; inspect the run.'}`;
+              message = `**${blocker ? 'BLOCKED' : 'ESCALATED'}** at \`${failed}\`: ${blocker || (failed === 'approve'
+                ? 'the implementation-approval deployment was rejected or not approved.'
+                : 'a job in this stage failed; see the failed jobs below.')}` + await diagnose();
             } else if (needs['plan-gate'].outputs.status === 'NEEDS_CLARIFICATION') {
               phase = 'agent:needs-clarification';
               message = 'Planner: **NEEDS_CLARIFICATION**. Answer on this issue; your reply resumes the same PR.';
@@ -475,7 +536,8 @@ jobs:
               const exhausted = decision === 'REQUEST_CHANGES';
               phase = { PASS: 'agent:ready-for-human-review', BLOCKED: 'agent:blocked' }[decision] || 'agent:escalated';
               message = `Reviewer: **${decision}** for \`${last.outputs.head_sha}\`` +
-                (exhausted ? ' after the single remediation attempt — escalated to a human.' : '. A human owns the merge decision.');
+                (exhausted ? ' after the single remediation attempt — escalated to a human.' : '. A human owns the merge decision.') +
+                await followUps(last.outputs.head_sha);
             } else {
               return; // Run skipped before doing work.
             }

@@ -97,11 +97,16 @@ tools:
   - 'dotnet build:*'
   - dotnet test
   - 'dotnet test:*'
+  # Standalone Bicep CLI installed by the trusted step below (no az, no Azure credentials).
+  - bicep --version
+  - 'bicep build:*'
+  - 'bicep lint:*'
 network:
   allowed:
   - defaults
   - node
   - dotnet
+timeout-minutes: 45
 steps:
 - name: Set up Node.js
   uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -111,6 +116,12 @@ steps:
   uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
   with:
     dotnet-version: '10.0.x'
+- name: Install standalone Bicep CLI
+  # Trusted step outside the agent sandbox; the agent only runs `bicep build/lint`.
+  run: |
+    az bicep install
+    sudo install -m 0755 "$HOME/.azure/bin/bicep" /usr/local/bin/bicep
+    bicep --version
 safe-outputs:
   push-to-pull-request-branch:
     target: ${{ inputs.pr_number }}
@@ -149,10 +160,14 @@ through native GitHub MCP, constitution, spec.md, plan.md and planner-handoff.js
 Use the approved execution_scope; metadata writes are limited to this issue's
 tasks.md and implementation-handoff.json. Do not edit approved planning files.
 Never create, edit, delete, rename or publish files under `.github/workflows/`.
-Only a human may apply workflow changes. If the plan requires such work, keep
-it visible in the handoff as a manual dependency and report PARTIAL until the
-required human changes and validation have actually been completed. Do not
-claim the issue is complete or remove acceptance criteria to bypass that work.
+The plan's `## Human follow-ups` (workflow files, external assets such as
+texture images) are done by a human on this PR after you. Do not attempt them
+and do not download external assets. Record each one in the handoff
+`deviations` as `MANUAL FOLLOW-UP: <path> — <change>`, and make your code work
+safely before they exist (for example a fallback material when a texture file
+is missing). Follow-ups do not make your work PARTIAL: return IMPLEMENTED when
+every agent-owned task and required local check passes. Never remove
+acceptance criteria to bypass work.
 If context.attempt is 1, fix only context.remediation findings within that scope.
 
 Add only the npm dependencies that plan.md explicitly names, with `npm install`
@@ -181,6 +196,9 @@ for another issue. Install only dependencies named in the approved plan, with
 its required versions and dependency classification. Use `npm ci --prefix
 frontend` when restoring an existing lockfile. Backend calls take the explicit
 approved project, for example `dotnet test backend/test/<project>/<project>.csproj`.
+Validate Bicep with the preinstalled standalone CLI, one file per call, for
+example `bicep build infra/main.bicep --stdout` (this replaces `az bicep build`;
+`--stdout` keeps generated JSON out of the repository). `az` is not available.
 Read source with the native file/search tools. Run one task operation per call;
 do not mix optional diagnostics, source dumps and required checks into a long
 shell command. Do not wrap commands in `env`, another shell or arbitrary Node

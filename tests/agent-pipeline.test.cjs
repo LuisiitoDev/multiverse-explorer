@@ -43,7 +43,7 @@ function fixture() {
     SPEC_SHA256: digest('spec'), PLAN_SHA256: digest('plan'), BASE_COMMIT: BASE,
     COMMENTS_SHA256: digest('[]'), GITHUB_RUN_ATTEMPT: '1', AGENT_WORKER: 'implementer',
     TRANSITION_ID: 'd'.repeat(32), ATTEMPT: '1', REMEDIATION_JSON: '[]'};
-  const context = {repo: {owner: 'LuisiitoDev', repo: 'multiverse-explorer'}, runId: 41395908995,
+  const context = {repo: {owner: 'LuisiitoDev', repo: 'multiverse-explorer'}, runId: 41395908995, serverUrl: 'https://github.com',
     eventName: 'workflow_dispatch', payload: {inputs: {issue_number: '50'}, sender: {type: 'User', login: 'LuisiitoDev'}}};
   const data = value => Promise.resolve({data: clone(value)});
   const marker = name => () => { throw Error(`Use github.paginate for ${name}`); };
@@ -51,11 +51,20 @@ function fixture() {
     repos: {
       getCollaboratorPermissionLevel: async () => data(state.permission),
       getContent: async ({path: p, ref}) => {
-        const raw = state.files[`${ref}:${p}`]; assert.notEqual(raw, undefined, `Unexpected file ${ref}:${p}`);
-        return data({type: 'file', encoding: 'base64', content: Buffer.from(raw).toString('base64')});
+        const raw = state.files[`${ref}:${p}`];
+        if (raw === undefined && state.allow404) throw Object.assign(Error('Not Found'), {status: 404});
+        assert.notEqual(raw, undefined, `Unexpected file ${ref}:${p}`);
+        return data({type: 'file', encoding: 'base64', sha: digest(raw).slice(0, 40), content: Buffer.from(raw).toString('base64')});
       },
       compareCommitsWithBasehead: async ({basehead}) => data({status: state.ancestry || (basehead.endsWith(CODE) ? 'ahead' : 'identical')}),
-      createOrUpdateFileContents: async args => {state.writes.push(['seed', clone(args)]); return data({});}
+      createOrUpdateFileContents: async args => {
+        const commit = 'e'.repeat(40);
+        if (args.path.endsWith('/issue-snapshot.json')) {
+          state.writes.push(['snapshot', clone(args)]);
+          if (!state.headStuck) {state.pr.head.sha = commit; state.files[`${commit}:${args.path}`] = Buffer.from(args.content, 'base64').toString('utf8');}
+        } else state.writes.push(['seed', clone(args)]);
+        return data({commit: {sha: commit}});
+      }
     },
     git: {
       getRef: async ({ref}) => {
@@ -73,8 +82,10 @@ function fixture() {
     issues: {
       get: async () => data(state.issue), listComments: marker('comments'), listLabelsOnIssue: marker('labels'),
       addLabels: async args => {state.writes.push(['labels', clone(args)]); return data({});},
-      removeLabel: async () => data({})
-    }
+      removeLabel: async () => data({}),
+      createComment: async args => {state.writes.push(['comment', clone(args)]); return data({});}
+    },
+    actions: {listJobsForWorkflowRun: marker('jobs')}
   },
     request: async (route, args) => {
       assert.equal(route, 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/approvals');
@@ -87,10 +98,16 @@ function fixture() {
       if (method === github.rest.issues.listComments) return clone(state.comments);
       if (method === github.rest.pulls.list) return clone(state.open === null ? [state.pr] : state.open);
       if (method === github.rest.issues.listLabelsOnIssue) return [];
+      if (method === github.rest.actions.listJobsForWorkflowRun) {
+        if (state.jobsDenied) throw Error('HTTP 403');
+        return clone(state.jobs || []);
+      }
       throw Error('Unexpected pagination target');
     }
   };
-  const core = {setOutput: (key, value) => {outputs[key] = value;}, setFailed: message => failures.push(message), notice: () => {}};
+  const summary = {addHeading() { return summary; }, addRaw() { return summary; }, write: async () => {}};
+  const core = {setOutput: (key, value) => {outputs[key] = value;}, setFailed: message => failures.push(message),
+    notice: () => {}, warning: () => {}, summary};
   const fakeFs = {mkdirSync: () => {}, writeFileSync: (p, bytes) => {state.materialized[p] = JSON.parse(bytes);}};
   const requireDouble = name => name === 'fs' ? fakeFs : name === 'crypto' ? crypto : assert.fail(`Unexpected module ${name}`);
   async function run(file, step) {
@@ -213,4 +230,108 @@ test('non-writer cannot start a planning pipeline', async () => {
   const f = fixture(); f.state.permission = {permission: 'read', role_name: 'read'};
   await f.run(pipeline, 'Route event to the canonical PR');
   assert.equal(f.outputs.run, 'false'); assert.deepEqual(f.state.writes, []);
+});
+
+// ── Hardening after runs 41395908995..41542290639 ──
+const route = f => f.run(pipeline, 'Route event to the canonical PR');
+const snapshotOf = issue => JSON.stringify({number: issue.number, title: issue.title, body: issue.body});
+test('route leaves an up-to-date issue snapshot untouched', async () => {
+  const f = fixture(); await route(f);
+  assert.deepEqual(f.failures, []); assert.equal(f.state.writes.filter(w => w[0] === 'snapshot').length, 0);
+  assert.equal(f.outputs.head_sha, HEAD);
+});
+test('route records the live issue when the planner snapshot is stale (run 41542290639)', async () => {
+  const f = fixture(); f.state.issue.body = 'Build the globe\n- [ ] DevOps / Infra'; await route(f);
+  assert.deepEqual(f.failures, []);
+  const [, write] = f.state.writes.find(w => w[0] === 'snapshot');
+  assert.equal(write.path, 'specs/issue-50/issue-snapshot.json'); assert.equal(write.branch, 'agent-plan/issue-50');
+  assert.equal(Buffer.from(write.content, 'base64').toString('utf8'), snapshotOf(f.state.issue));
+  assert.ok(write.sha, 'existing file must be updated with its blob sha');
+  assert.equal(f.outputs.head_sha, 'e'.repeat(40), 'planner must start from the snapshot commit');
+});
+test('route creates the snapshot when the PR has none yet', async () => {
+  const f = fixture(); f.state.allow404 = true; delete f.state.files[`${HEAD}:specs/issue-50/issue-snapshot.json`];
+  await route(f);
+  assert.deepEqual(f.failures, []);
+  const [, write] = f.state.writes.find(w => w[0] === 'snapshot');
+  assert.equal(write.sha, undefined); assert.equal(f.outputs.head_sha, 'e'.repeat(40));
+});
+test('route fails closed when the PR head does not reflect the snapshot commit', async () => {
+  const f = fixture(); f.state.issue.title = 'Edited'; f.state.headStuck = true;
+  const realTimeout = global.setTimeout; global.setTimeout = fn => { fn(); return 0; };
+  try { await route(f); } finally { global.setTimeout = realTimeout; }
+  assert.match(f.failures.join(), /moved while recording the issue snapshot/);
+  assert.equal(f.outputs.run, 'false');
+});
+
+const finalize = f => f.run(pipeline, 'Publish phase and summary');
+function needs(overrides = {}) {
+  return JSON.stringify(Object.assign({
+    route: {result: 'success', outputs: {issue_number: '50', run: 'true'}}, plan: {result: 'success', outputs: {}},
+    'plan-gate': {result: 'success', outputs: {status: 'PLANNED'}}, approve: {result: 'success', outputs: {}},
+    'iteration-1': {result: 'success', outputs: {decision: 'PASS', head_sha: CODE}},
+    'iteration-2': {result: 'skipped', outputs: {}}}, overrides));
+}
+const lastComment = f => f.state.writes.filter(w => w[0] === 'comment').at(-1)[1].body;
+test('finalize names the failed nested job and step instead of "job failed"', async () => {
+  const f = fixture(); f.env.NEEDS = needs({'iteration-1': {result: 'failure', outputs: {}}});
+  f.state.jobs = [{name: 'iteration-1 / implement / safe_outputs', conclusion: 'failure', html_url: 'https://github.com/x/job/1',
+    steps: [{name: 'Process Safe Outputs', conclusion: 'failure'}]}, {name: 'route', conclusion: 'success', steps: []}];
+  await finalize(f);
+  const body = lastComment(f);
+  assert.match(body, /ESCALATED\*\* at `iteration-1`/);
+  assert.match(body, /`iteration-1 \/ implement \/ safe_outputs`.*step `Process Safe Outputs`/);
+  assert.doesNotMatch(body, /`route`\]/);
+});
+test('finalize still reports when job listing is denied', async () => {
+  const f = fixture(); f.env.NEEDS = needs({'iteration-1': {result: 'failure', outputs: {}}}); f.state.jobsDenied = true;
+  await finalize(f); assert.match(lastComment(f), /a job in this stage failed/);
+});
+test('finalize explains a rejected implementation approval', async () => {
+  const f = fixture(); f.env.NEEDS = needs({approve: {result: 'failure', outputs: {}}, 'iteration-1': {result: 'skipped', outputs: {}}});
+  await finalize(f); assert.match(lastComment(f), /implementation-approval deployment was rejected or not approved/);
+});
+test('finalize turns recorded human follow-ups into a merge checklist on PASS', async () => {
+  const f = fixture(); f.env.NEEDS = needs();
+  f.state.files[`${CODE}:specs/issue-50/implementation-handoff.json`] = JSON.stringify({deviations: [
+    'MANUAL FOLLOW-UP: .github/workflows/bluegreen-swap.yml — create swap workflow',
+    'MANUAL FOLLOW-UP: frontend/public/textures/earth.jpg — add NASA Blue Marble texture',
+    'Pinned three to 0.170.0']});
+  await finalize(f);
+  const body = lastComment(f);
+  assert.match(body, /Reviewer: \*\*PASS\*\*/);
+  assert.match(body, /- \[ \] \.github\/workflows\/bluegreen-swap\.yml — create swap workflow/);
+  assert.match(body, /- \[ \] frontend\/public\/textures\/earth\.jpg/);
+  assert.doesNotMatch(body, /Pinned three/);
+  assert.equal(f.state.writes.find(w => w[0] === 'labels')[1].labels[0], 'agent:ready-for-human-review');
+});
+test('finalize PASS without follow-ups or with an unreadable report still completes', async () => {
+  const f = fixture(); f.env.NEEDS = needs(); f.state.allow404 = true;
+  await finalize(f); assert.doesNotMatch(lastComment(f), /Human follow-ups/);
+});
+
+test('reviewer submits COMMENT reviews only (github-actions[bot] authors the PR)', () => {
+  const review = fs.readFileSync(path.join(root, '.github/workflows/agent-review.md'), 'utf8');
+  const events = review.split('allowed-events:\n')[1].split('\n').filter(l => l.startsWith('    - ')).map(l => l.trim().slice(2));
+  assert.deepEqual(events, ['COMMENT']);
+  assert.match(review, /never use them to justify REQUEST_CHANGES/);
+  if (process.env.CHECK_COMPILED_LOCK) {
+    const lock = fs.readFileSync(path.join(root, '.github/workflows/agent-review.lock.yml'), 'utf8');
+    assert.match(lock, /Restricted by allowed-events configuration to: COMMENT\./);
+  }
+});
+test('planner treats workflow files and external assets as non-blocking human follow-ups', () => {
+  const plan = fs.readFileSync(path.join(root, '.github/workflows/agent-plan.md'), 'utf8');
+  const agent = fs.readFileSync(path.join(root, '.github/agents/planner.agent.md'), 'utf8');
+  for (const text of [plan, agent]) {
+    assert.match(text, /implementer-capabilities\.md/);
+    assert.match(text, /## Human follow-ups/);
+    assert.match(text, /never make the plan BLOCKED/);
+  }
+  assert.match(plan, /never create, rewrite or reformat it/);
+  assert.doesNotMatch(plan, /set\s+the handoff status to BLOCKED/);
+});
+test('PLANNED comment warns which human actions invalidate the run', () => {
+  const text = fs.readFileSync(path.join(root, pipeline), 'utf8');
+  assert.match(text, /do not edit or comment on this issue and do not merge to/);
 });

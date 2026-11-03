@@ -16,12 +16,16 @@ const permits = (command, allow = rules) => allow.some(rule => rule.endsWith(':*
 for (const command of [...fixture.observed_denied_diagnostics, ...fixture.task_commands_not_attempted,
   'node --version', 'npm -v', 'dotnet restore backend/src/Favorites.Api/Favorites.Api.csproj',
   'dotnet build backend/src/Favorites.Api/Favorites.Api.csproj --no-restore --configuration Release',
-  'dotnet test backend/test/Favorites.UnitTests/Favorites.UnitTests.csproj --configuration Release']) {
+  'dotnet test backend/test/Favorites.UnitTests/Favorites.UnitTests.csproj --configuration Release',
+  'bicep --version', 'bicep build infra/main.bicep --stdout', 'bicep build infra/modules/containerapp.bicep --stdout',
+  'bicep lint infra/main.bicep']) {
   test(`configured rules permit ${command}`, () => assert.ok(permits(command)));
 }
 for (const command of ['npm publish', 'npm exec arbitrary', 'npm uninstall package', 'npm config set registry https://example.com',
   'npx arbitrary', 'node -e arbitrary', 'node script.js', 'npm-install bad', 'dotnet test-evil project',
-  'git push', 'az deployment group create', '/usr/bin/env node --version', 'bash -c arbitrary']) {
+  'git push', 'az deployment group create', '/usr/bin/env node --version', 'bash -c arbitrary',
+  'az bicep build --file infra/main.bicep', 'bicep publish infra/main.bicep --target br:evil', 'bicep restore infra/main.bicep',
+  'curl -o frontend/public/textures/earth.jpg https://eoimages.gsfc.nasa.gov/earth.jpg', 'wget https://example.com/x']) {
   test(`configured rules do not grant ${command}`, () => assert.equal(permits(command), false));
 }
 test('exact-only rules reproduce the argument mismatch', () => {
@@ -37,6 +41,28 @@ test('the agent has a truthful, non-bypass execution contract', () => {
 });
 test('compiled production lock carries argument rules when compilation is requested', {skip: !process.env.CHECK_COMPILED_LOCK}, () => {
   const lock = fs.readFileSync(path.join(root, '.github/workflows/agent-implement.lock.yml'), 'utf8');
-  for (const rule of rules.filter(r => /^(npm|node|dotnet)\b/.test(r))) assert.ok(lock.includes(`shell(${rule})`), `Missing compiled rule ${rule}`);
-  for (const broad of ['shell(npm:*)', 'shell(node:*)', 'shell(dotnet:*)']) assert.ok(!lock.includes(broad));
+  for (const rule of rules.filter(r => /^(npm|node|dotnet|bicep)\b/.test(r))) assert.ok(lock.includes(`shell(${rule})`), `Missing compiled rule ${rule}`);
+  for (const broad of ['shell(npm:*)', 'shell(node:*)', 'shell(dotnet:*)', 'shell(bicep:*)', 'shell(az:*)']) assert.ok(!lock.includes(broad));
+  assert.match(lock, /name: Install standalone Bicep CLI/);
+  assert.match(lock, /GH_AW_TIMEOUT_MINUTES: 45/);
+});
+test('Bicep CLI is installed by a trusted step before the agent, never by the agent', () => {
+  const steps = source.split('\nsteps:\n')[1].split('\nsafe-outputs:')[0];
+  assert.match(steps, /az bicep install/);
+  assert.match(steps, /install -m 0755 "\$HOME\/\.azure\/bin\/bicep" \/usr\/local\/bin\/bicep/);
+  assert.ok(!rules.some(rule => rule.startsWith('az')), 'agent must not run az');
+  assert.match(source, /bicep build infra\/main\.bicep --stdout/);
+});
+test('large implementations get a 45 minute agent step', () => {
+  assert.match(source, /^timeout-minutes: 45$/m);
+});
+test('capability contract documents every command the implementer may run', () => {
+  const doc = fs.readFileSync(path.join(root, 'docs/agent-handoffs/implementer-capabilities.md'), 'utf8');
+  for (const rule of rules) assert.ok(doc.includes('`' + rule.replace(/:\*$/, '')), `Contract missing ${rule}`);
+  for (const absent of ['curl', '`az`', 'docker']) assert.ok(doc.includes(absent), `Contract must state ${absent} is unavailable`);
+});
+test('human follow-ups never make the implementation PARTIAL', () => {
+  assert.match(source, /MANUAL FOLLOW-UP: <path> — <change>/);
+  assert.match(source, /Follow-ups do not make your work PARTIAL/);
+  assert.ok(!/report PARTIAL until the\s+required human changes/.test(source));
 });

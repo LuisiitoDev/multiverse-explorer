@@ -182,7 +182,10 @@ actionlint .github/workflows/agent-pipeline.yml .github/workflows/agent-iteratio
 Copilot's `shell(npm run)` is an exact permission; `shell(npm run:*)` permits
 script arguments. The Implementer enables bounded `:*` stems for npm
 ci/install/run/test and dotnet restore/build/test, plus exact Node/npm version
-diagnostics and npm view metadata. It does not grant `npm:*`, `node:*`, npx,
+diagnostics and npm view metadata. The `cmd sub:*` form only works for Copilot's
+stem commands (git, npm, dotnet, ...); for any other executable the rule must be
+the bare name, so Bicep is allowed as `bicep` (run 27 was denied `bicep build:*`)
+and the prompt limits it to build/lint. It does not grant `npm:*`, `node:*`, npx,
 arbitrary shell wrappers, publishing or deployment permissions. Network,
 human approval and safe-output targets are unchanged. Plan scope still governs
 which packages may be installed and which scripts/projects may be executed.

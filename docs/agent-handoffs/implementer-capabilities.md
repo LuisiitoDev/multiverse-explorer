@@ -14,7 +14,7 @@ after implementation and review, before merge. Keep this file in sync with
 | Files / time | `mkdir`, `date -u`, `sha256sum` |
 | Node / npm | `npm ci`, `npm install`, `npm run`, `npm test`, `npm view`, `node --version`, `node -v`, `npm --version`, `npm -v` |
 | .NET | `dotnet restore`, `dotnet build`, `dotnet test` (explicit `.csproj`) |
-| Bicep | `bicep build <file> --stdout`, `bicep lint <file>`, `bicep --version` (standalone CLI preinstalled by a trusted step; use instead of `az bicep build`) |
+| Bicep | `bicep` (permission covers the executable; use only `bicep build <file> --stdout`, `bicep lint <file>`, `bicep --version`; standalone CLI provided by a trusted step, used instead of `az bicep build`) |
 
 Not available: `curl`/`wget`, `az` (no Azure credentials, no deployments or
 `az deployment ... validate`), `docker`, `gh`, arbitrary `node -e`/scripts,

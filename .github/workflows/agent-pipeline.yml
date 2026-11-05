@@ -298,7 +298,10 @@ jobs:
               if (!check(doc)) fail(`Invalid ${name}: ${ajv.errorsText(check.errors)}`);
             };
             const file = async (path, ref) => {
-              const { data } = await github.rest.repos.getContent({ owner, repo, path, ref });
+              const { data } = await github.rest.repos.getContent({ owner, repo, path, ref }).catch((error) => {
+                if (error.status === 404) fail(`${path} is missing at ${ref.slice(0, 7)}: the Planner did not publish it (check the plan / pre_activation and plan / agent jobs)`);
+                throw error;
+              });
               if (Array.isArray(data) || data.type !== 'file') fail(`${path} is not a regular file`);
               return Buffer.from(data.content, 'base64');
             };

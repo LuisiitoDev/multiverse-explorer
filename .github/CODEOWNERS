@@ -4,13 +4,6 @@
 # Default repository owner
 * @LuisiitoDev
 
-# Agent definitions and instructions
-/.github/agents/ @LuisiitoDev
-
-# Spec-Driven Development
-/.specify/ @LuisiitoDev
-/specs/ @LuisiitoDev
-
 # Frontend — React, TypeScript, Vite
 /frontend/ @LuisiitoDev
 

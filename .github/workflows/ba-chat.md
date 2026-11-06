@@ -37,8 +37,12 @@ network:
     - defaults
 
 tools:
+  cli-proxy: false
   github:
+    mode: local
     toolsets: [repos, issues, pull_requests, discussions]
+    allowed-repos:
+    - luisiitodev/multiverse-explorer
     min-integrity: approved
   bash:
     - ls

@@ -51,6 +51,7 @@ jobs:
       pull-requests: read
     outputs:
       run: ${{ steps.resolve.outputs.run }}
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
       run_coder: ${{ steps.resolve.outputs.run_coder }}
       run_infra: ${{ steps.resolve.outputs.run_infra }}
       started_at: ${{ steps.resolve.outputs.started_at }}
@@ -76,7 +77,8 @@ jobs:
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner, repo, issue_number, per_page: 100 });
-            const planner = [...comments].reverse().find(c => c.body?.startsWith('<!-- planner:result -->'));
+            // Result comments are control data: accept only the workflow identity, never a user comment.
+            const planner = [...comments].reverse().find(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith('<!-- planner:result -->'));
             if (!planner) return stop('no planner result on the issue');
             const field = (k) => (planner.body.match(new RegExp(`^${k}:\\s*(\\S+)`, 'm')) || [])[1];
             if (field('status') !== 'awaiting-review') return stop(`planner status is ${field('status')}`);
@@ -85,6 +87,7 @@ jobs:
             if (!pr_number) return stop('planner result has no PR');
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: pr_number });
             if (pr.state !== 'open') return stop(`PR #${pr_number} is ${pr.merged ? 'merged' : 'closed'}`);
+            if (!pr.labels.some(l => l.name === 'planning-output')) return stop(`PR #${pr_number} is not a Planner PR`);
 
             // Pending work. Features: the unticked tasks. Bugs have no checklist, so the
             // assessment decides: the Coder always runs, Infra only if it names infra/.
@@ -114,6 +117,7 @@ jobs:
             }
 
             core.setOutput('run', 'true');
+            core.setOutput('pr_number', String(pr_number));
             core.setOutput('run_coder', String(runCoder));
             core.setOutput('run_infra', String(runInfra));
             await core.summary.addHeading('Agent Orchestrator')
@@ -177,7 +181,7 @@ jobs:
               owner, repo, issue_number, per_page: 100 });
 
             const statusOf = (marker) => {
-              const c = [...comments].reverse().find(x => x.body?.startsWith(marker) && new Date(x.created_at) >= since);
+              const c = [...comments].reverse().find(x => x.user?.login === 'github-actions[bot]' && x.body?.startsWith(marker) && new Date(x.created_at) >= since);
               return c ? (c.body.match(/^status:\s*([\w-]+)/m) || [])[1] : 'missing';
             };
             const results = {};
@@ -197,15 +201,14 @@ jobs:
       - name: Mark the PR ready for review
         if: steps.gate.outputs.ready == 'true'
         uses: actions/github-script@v7
+        env:
+          # The PR approved in `resolve`. Never re-read from comments, which anyone can post.
+          PR_NUMBER: ${{ needs.resolve.outputs.pr_number }}
         with:
           script: |
             const { owner, repo } = context.repo;
-            const issue_number = context.payload.issue.number;
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number, per_page: 100 });
-            const planner = [...comments].reverse().find(c => c.body?.startsWith('<!-- planner:result -->'));
-            const pr_number = Number((planner?.body.match(/^pr:\s*(\S+)/m) || [])[1]?.match(/\/pull\/(\d+)/)?.[1]);
-            if (!pr_number) return core.warning('No PR in the planner result; nothing to mark ready.');
+            const pr_number = Number(process.env.PR_NUMBER);
+            if (!pr_number) return core.warning('No approved PR from resolve; nothing to mark ready.');
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: pr_number });
             if (pr.state !== 'open' || !pr.draft) return core.info(`PR #${pr_number} is not an open draft.`);
             await github.graphql(
@@ -253,7 +256,7 @@ jobs:
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner, repo, issue_number, per_page: 100 });
               const c = [...comments].reverse().find(x =>
-                x.body?.startsWith('<!-- reviewer:result -->') && new Date(x.created_at) >= new Date(process.env.SINCE));
+                x.user?.login === 'github-actions[bot]' && x.body?.startsWith('<!-- reviewer:result -->') && new Date(x.created_at) >= new Date(process.env.SINCE));
               const v = c && (c.body.match(/^verdict:\s*([\w-]+)/m) || [])[1];
               if (['pass', 'changes-requested', 'blocked'].includes(v)) verdict = v;
             }

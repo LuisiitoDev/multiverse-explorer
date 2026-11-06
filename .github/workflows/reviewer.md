@@ -1,14 +1,13 @@
 ---
 name: Reviewer
-description: Reviews the implementation on the Planner's PR when an issue is labeled `needs-review`. Runs tests, coverage, CodeQL and smoke gates and checks the code against the spec
+description: Reviews the implementation on the Planner's PR. Called by the Agent Orchestrator after the Coder (and Infra agent, if any) finished. Runs tests, coverage, CodeQL and smoke gates and checks the code against the spec
 
 on:
-  issues:
-    types: [labeled]
-    names: [needs-review]
-  # Only people who can write to the repo may request a review.
+  # Called by agent-orchestrator.yml, which starts when a human adds `ready-for-dev`.
+  # github.event is the caller's issues event, so the issue is the triggering issue.
+  workflow_call:
+  # Only people who can write to the repo may start the pipeline (checked on the human who labeled).
   roles: [admin, maintainer, write]
-  reaction: eyes
 
 permissions:
   contents: read
@@ -85,19 +84,18 @@ safe-outputs:
   add-comment:
     max: 1
     target: triggering
+  # pass -> needs-review (a human decides). blocked -> needs-clarification.
+  # changes-requested gets no label: the Agent Orchestrator hands the findings to the
+  # Planner, which re-analyzes them and ends at the human gate (spec-review).
   add-labels:
-    allowed: [needs-clarification]
-    max: 1
-    target: triggering
-  remove-labels:
-    allowed: [needs-review]
+    allowed: [needs-review, needs-clarification]
     max: 1
     target: triggering
 ---
 
 # Reviewer run
 
-Issue **#${{ github.event.issue.number }}** was labeled `needs-review`.
+The Agent Orchestrator started you for issue **#${{ github.event.issue.number }}**, after the Coder (and the Infra agent, when the plan has infra tasks) finished.
 
 Follow your Reviewer agent instructions end to end for this issue:
 
@@ -113,6 +111,6 @@ Follow your Reviewer agent instructions end to end for this issue:
    and the real CI status.
 5. Post inline comments for findings, submit one PR review (`COMMENT` or `REQUEST_CHANGES`
    only), then finish with exactly one issue comment in the `<!-- reviewer:result -->`
-   format and the matching label change.
+   format and the matching label (`needs-review` on `pass`, `needs-clarification` on `blocked`, none on `changes-requested`).
 
 Never edit tracked files, commit, push, approve, merge or close the PR.

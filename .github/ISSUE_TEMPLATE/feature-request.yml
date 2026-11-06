@@ -1,0 +1,64 @@
+name: Feature request
+description: Describe what you need in your own words. The BA agent will analyze it, ask follow-up questions if needed, and hand it to the Planner.
+title: "[Feature]: "
+labels: ["analysis"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write this the way you would explain it to a colleague. You do not need to know the code or the technology.
+        The BA agent reads this form, grounds it in the product, and replies on this issue with any questions.
+  - type: textarea
+    id: request
+    attributes:
+      label: What do you need?
+      description: Describe the change or new capability in your own words.
+      placeholder: "Example: users should be able to save characters they like and see them later."
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Why do you need it? What problem does it solve?
+      description: What is hard or impossible today, and who is affected?
+    validations:
+      required: true
+  - type: input
+    id: users
+    attributes:
+      label: Who is it for?
+      description: The type of user or role that benefits.
+      placeholder: "Example: a visitor browsing the multiverse explorer"
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: How will we know it works?
+      description: What should a user be able to do or see when this is done?
+    validations:
+      required: false
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Anything that is NOT part of this?
+      description: Things you explicitly do not want, or that can wait for later.
+    validations:
+      required: false
+  - type: textarea
+    id: references
+    attributes:
+      label: Examples, links or screenshots
+      description: Mockups, similar products, related issues or anything else that helps.
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is it?
+      options:
+        - "P1 - needed now"
+        - "P2 - important"
+        - "P3 - nice to have"
+    validations:
+      required: false

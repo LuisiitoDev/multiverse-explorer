@@ -1,14 +1,13 @@
 ---
 name: Infra Agent
-description: Implements the infra/ (Azure Bicep) tasks of an approved Spec Kit plan on the Planner's branch when an issue is labeled `ready-for-infra`
+description: Implements the infra/ (Azure Bicep) tasks of an approved Spec Kit plan on the Planner's branch. Called by the Agent Orchestrator in parallel with the Coder when the plan has infra tasks
 
 on:
-  issues:
-    types: [labeled]
-    names: [ready-for-infra]
-  # Only people who can write to the repo may hand infra work to the Infra agent.
+  # Called by agent-orchestrator.yml, which starts when a human adds `ready-for-dev`.
+  # github.event is the caller's issues event, so the issue is the triggering issue.
+  workflow_call:
+  # Only people who can write to the repo may start the pipeline (checked on the human who labeled).
   roles: [admin, maintainer, write]
-  reaction: eyes
 
 permissions:
   contents: read
@@ -71,19 +70,16 @@ safe-outputs:
   add-comment:
     max: 1
     target: triggering
+  # The Agent Orchestrator owns the state labels. The Infra agent only flags a blocker.
   add-labels:
-    allowed: [needs-review, needs-clarification]
-    max: 2
-    target: triggering
-  remove-labels:
-    allowed: [ready-for-infra]
+    allowed: [needs-clarification]
     max: 1
     target: triggering
 ---
 
 # Infra run
 
-Issue **#${{ github.event.issue.number }}** was labeled `ready-for-infra`.
+The Agent Orchestrator started you for issue **#${{ github.event.issue.number }}**, which a human labeled `ready-for-dev` and whose plan has `infra/` tasks.
 
 Follow your Infra agent instructions end to end for this issue:
 
@@ -93,6 +89,7 @@ Follow your Infra agent instructions end to end for this issue:
 3. Check out the Planner's branch and implement only the `infra/` tasks in `tasks.md`
    (or the infra part of `assessment.md`). Build and lint the Bicep.
 4. Push to the branch, then finish with exactly one issue comment in the
-   `<!-- infra:result -->` format and the matching label change.
+   `<!-- infra:result -->` format. Do not change state labels; add `needs-clarification`
+   only when blocked.
 
 Never write outside `infra/**` and `specs/**`, and never approve or merge the PR.

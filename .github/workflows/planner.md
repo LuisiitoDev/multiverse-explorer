@@ -5,13 +5,17 @@ description: Turns an issue labeled `planning` into a Spec Kit package (or bug a
 on:
   issues:
     types: [labeled]
-    names: [planning]
-  # Also called by agent-orchestrator.yml when the Reviewer asked for changes: the Planner
-  # re-analyzes the findings and revises the plan before a human approves another run.
+  # Also called by ba.yml (hand-off of complete requirements) and by agent-orchestrator.yml
+  # (replan after the Reviewer asked for changes). A called workflow inherits the caller's
+  # event, which is a label event for another label (`analysis`, `ready-for-dev`).
   workflow_call:
   # Only people who can write to the repo may trigger the planner.
   roles: [admin, maintainer, write]
   reaction: eyes
+
+# The label filter applies only to the standalone Planner. In a reusable-workflow call,
+# `github.workflow` is the caller's name, so a call is never filtered by the inherited label.
+if: github.workflow != 'Planner' || github.event.label.name == 'planning'
 
 permissions:
   contents: read

@@ -1,14 +1,13 @@
 ---
 name: Coder
-description: Implements an approved Spec Kit plan on the Planner's branch and draft PR when an issue is labeled `ready-for-dev`
+description: Implements an approved Spec Kit plan on the Planner's branch and draft PR. Called by the Agent Orchestrator after a human adds `ready-for-dev`
 
 on:
-  issues:
-    types: [labeled]
-    names: [ready-for-dev]
-  # Only people who can write to the repo may hand a plan to the Coder.
+  # Called by agent-orchestrator.yml, which starts when a human adds `ready-for-dev`.
+  # github.event is the caller's issues event, so the issue is the triggering issue.
+  workflow_call:
+  # Only people who can write to the repo may start the pipeline (checked on the human who labeled).
   roles: [admin, maintainer, write]
-  reaction: eyes
 
 permissions:
   contents: read
@@ -98,19 +97,16 @@ safe-outputs:
   add-comment:
     max: 1
     target: triggering
+  # The Agent Orchestrator owns the state labels. The Coder only flags a blocker.
   add-labels:
-    allowed: [needs-review, needs-clarification, ready-for-infra]
-    max: 3
-    target: triggering
-  remove-labels:
-    allowed: [ready-for-dev]
+    allowed: [needs-clarification]
     max: 1
     target: triggering
 ---
 
 # Coder run
 
-Issue **#${{ github.event.issue.number }}** was labeled `ready-for-dev`.
+The Agent Orchestrator started you for issue **#${{ github.event.issue.number }}**, which a human labeled `ready-for-dev`.
 
 Follow your Coder agent instructions end to end for this issue:
 
@@ -121,8 +117,9 @@ Follow your Coder agent instructions end to end for this issue:
 3. Check out the Planner's branch and implement `tasks.md` (feature) or `assessment.md`
    (bug) with the Spec Kit skills only. Run the CI checks for every area you touch.
 4. Push to the branch, then finish with exactly one issue comment in the
-   `<!-- coder:result -->` format, the matching label change, and, only when every
-   applicable check passes, retitle the PR and mark it ready for review.
+   `<!-- coder:result -->` format and, only when every applicable check passes, retitle
+   the PR and update its body. Do not change state labels; add `needs-clarification` only
+   when blocked.
 
-Never touch `infra/`: leave infra tasks to the Infra agent and add `ready-for-infra`.
+Never touch `infra/`: leave infra tasks to the Infra agent, which runs in parallel.
 Never write outside the allowed paths, and never approve or merge the PR.

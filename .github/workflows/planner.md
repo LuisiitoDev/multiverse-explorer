@@ -6,6 +6,9 @@ on:
   issues:
     types: [labeled]
     names: [planning]
+  # Also called by agent-orchestrator.yml when the Reviewer asked for changes: the Planner
+  # re-analyzes the findings and revises the plan before a human approves another run.
+  workflow_call:
   # Only people who can write to the repo may trigger the planner.
   roles: [admin, maintainer, write]
   reaction: eyes
@@ -94,3 +97,5 @@ Follow your Planner agent instructions end to end for this issue:
    the matching label swap, and (when the plan is complete) a draft PR.
 
 Never write outside `specs/`, `.specify/feature.json` and `.specify/bugs/`.
+
+When the Agent Orchestrator called you after a `<!-- reviewer:result -->` with `verdict: changes-requested`, follow **Revise after Reviewer verdict** in your agent instructions.

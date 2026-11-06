@@ -1,0 +1,307 @@
+name: Agent Orchestrator
+
+run-name: Agent Orchestrator (issue #${{ github.event.issue.number }})
+
+# Multi-agent orchestration as a loop that ends only when the goal is reached: the Reviewer
+# passes the work. One run is one pass. There is no iteration counter.
+#
+#   ┌──────────────────────────────────────────────────────────────────────────┐
+#   ▼                                                                          │
+#   Planner ─► human approves (`ready-for-dev`) ─► this workflow:              │
+#                                                                              │
+#   resolve ─┬─► coder ─┬─► gate ─► reviewer ─► verdict ─┬─ pass ─► human merges
+#            └─► infra ─┘                                └─ changes-requested ─► replan
+#                                                                  (Planner) ──┘
+#
+# - resolve   checks the approval, finds the pending tasks, and decides which of Coder and
+#             Infra have work. On a later pass only the tasks the Planner added are pending.
+# - coder / infra  run in parallel: their paths are disjoint (frontend/, backend/ vs infra/).
+# - gate      fans in: both agents that ran must report `ready-for-review`.
+# - reviewer  verifies the work. It never approves or merges.
+# - verdict   reads the Reviewer's verdict.
+# - replan    only on `changes-requested`: the Planner analyzes the findings again and revises
+#             the spec, plan and tasks. It ends at the human gate: the human reviewer decides
+#             whether to approve the revised plan by adding `ready-for-dev`, which starts the
+#             next pass of this workflow.
+# - finalize  releases `ready-for-dev` and hands the issue to a human when an agent is blocked.
+#
+# The human reviewer is the brake on the loop, not a counter: it ends only on a `pass`
+# (a human merges), or when a human stops approving another pass.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+# One orchestration per issue. A second `ready-for-dev` waits instead of racing the first.
+concurrency:
+  group: agent-orchestrator-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve approval and pending work
+    if: github.event.label.name == 'ready-for-dev' && !github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      run: ${{ steps.resolve.outputs.run }}
+      run_coder: ${{ steps.resolve.outputs.run_coder }}
+      run_infra: ${{ steps.resolve.outputs.run_infra }}
+      started_at: ${{ steps.resolve.outputs.started_at }}
+    steps:
+      - name: Check the plan is approved and find pending work
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            // Agent results are matched against this instant, so earlier passes never count.
+            core.setOutput('started_at', new Date().toISOString());
+            const stop = (why) => { core.notice(`Orchestration not started: ${why}`); core.setOutput('run', 'false'); };
+
+            // Only a repository writer can approve a plan.
+            const actor = context.payload.sender;
+            const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner, repo, username: actor.login });
+            if (actor.type !== 'User' || !['admin', 'maintain', 'write'].includes(perm.role_name)) {
+              return stop(`@${actor.login} lacks write permission`);
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100 });
+            const planner = [...comments].reverse().find(c => c.body?.startsWith('<!-- planner:result -->'));
+            if (!planner) return stop('no planner result on the issue');
+            const field = (k) => (planner.body.match(new RegExp(`^${k}:\\s*(\\S+)`, 'm')) || [])[1];
+            if (field('status') !== 'awaiting-review') return stop(`planner status is ${field('status')}`);
+
+            const pr_number = Number((field('pr') || '').match(/\/pull\/(\d+)/)?.[1]);
+            if (!pr_number) return stop('planner result has no PR');
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: pr_number });
+            if (pr.state !== 'open') return stop(`PR #${pr_number} is ${pr.merged ? 'merged' : 'closed'}`);
+
+            // Pending work. Features: the unticked tasks. Bugs have no checklist, so the
+            // assessment decides: the Coder always runs, Infra only if it names infra/.
+            const dir = field('feature_dir');
+            const isBug = field('type') === 'bug';
+            const file = isBug ? 'assessment.md' : 'tasks.md';
+            let text;
+            try {
+              const { data } = await github.rest.repos.getContent({
+                owner, repo, path: `${dir}/${file}`, ref: pr.head.sha });
+              text = Buffer.from(data.content, 'base64').toString('utf8');
+            } catch (e) {
+              return stop(`cannot read ${dir}/${file} on the PR branch: ${e.message}`);
+            }
+            const pending = isBug ? [text] : text.split('\n').filter(l => /^\s*- \[ \]/.test(l));
+            const infraTask = (l) => /\binfra\//.test(l);
+            const runInfra = isBug ? infraTask(text) : pending.some(infraTask);
+            const runCoder = isBug ? true : pending.some(l => !infraTask(l));
+
+            if (!runCoder && !runInfra) {
+              // Approved, but the plan has no pending task: nothing for the agents to do.
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name: 'ready-for-dev' });
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-clarification'] });
+              await github.rest.issues.createComment({ owner, repo, issue_number,
+                body: `**Orchestrator:** \`${dir}/${file}\` has no unticked task, so there is nothing to implement. If the Reviewer still requests changes, relabel the issue \`planning\` so the Planner adds tasks for the findings, then approve again with \`ready-for-dev\`.` });
+              return stop('no pending tasks');
+            }
+
+            core.setOutput('run', 'true');
+            core.setOutput('run_coder', String(runCoder));
+            core.setOutput('run_infra', String(runInfra));
+            await core.summary.addHeading('Agent Orchestrator')
+              .addRaw(`Issue #${issue_number}, PR #${pr_number}. Coder: **${runCoder}**, Infra: **${runInfra}**`).write();
+
+  # ── Fan out: disjoint paths, so they run in parallel ──
+  coder:
+    name: Coder
+    needs: resolve
+    if: needs.resolve.outputs.run == 'true' && needs.resolve.outputs.run_coder == 'true'
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/coder.lock.yml
+    secrets: inherit
+
+  infra:
+    name: Infra Agent
+    needs: resolve
+    if: needs.resolve.outputs.run == 'true' && needs.resolve.outputs.run_infra == 'true'
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/infra-agent.lock.yml
+    secrets: inherit
+
+  # ── Fan in: every agent that ran must have reported ready-for-review ──
+  gate:
+    name: Gate before review
+    needs: [resolve, coder, infra]
+    # always() so a skipped agent does not skip the gate.
+    if: always() && needs.resolve.outputs.run == 'true' && contains(fromJSON('["success","skipped"]'), needs.coder.result) && contains(fromJSON('["success","skipped"]'), needs.infra.result)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: multiagent-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    permissions:
+      issues: read
+    outputs:
+      ready: ${{ steps.gate.outputs.ready }}
+    steps:
+      - name: Require ready-for-review from every agent that ran
+        id: gate
+        uses: actions/github-script@v7
+        env:
+          RUN_CODER: ${{ needs.resolve.outputs.run_coder }}
+          RUN_INFRA: ${{ needs.resolve.outputs.run_infra }}
+          SINCE: ${{ needs.resolve.outputs.started_at }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            const since = new Date(process.env.SINCE);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100 });
+
+            const statusOf = (marker) => {
+              const c = [...comments].reverse().find(x => x.body?.startsWith(marker) && new Date(x.created_at) >= since);
+              return c ? (c.body.match(/^status:\s*([\w-]+)/m) || [])[1] : 'missing';
+            };
+            const results = {};
+            if (process.env.RUN_CODER === 'true') results.coder = statusOf('<!-- coder:result -->');
+            if (process.env.RUN_INFRA === 'true') results.infra = statusOf('<!-- infra:result -->');
+
+            const ready = Object.values(results).every(s => s === 'ready-for-review');
+            core.setOutput('ready', String(ready));
+            await core.summary.addHeading('Gate before review')
+              .addTable([[{ data: 'Agent', header: true }, { data: 'Status', header: true }],
+                ...Object.entries(results)])
+              .addRaw(ready ? 'Reviewer will run.' : 'Reviewer skipped: an agent is blocked.').write();
+
+  reviewer:
+    name: Reviewer
+    needs: gate
+    if: needs.gate.outputs.ready == 'true'
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: write
+      security-events: read
+    uses: ./.github/workflows/reviewer.lock.yml
+    secrets: inherit
+
+  # ── The loop reads this: changes-requested goes back to the Planner ──
+  verdict:
+    name: Read the Reviewer verdict
+    needs: [resolve, gate, reviewer]
+    if: always() && needs.resolve.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+    steps:
+      - name: Parse the verdict and, if changes are needed, return the issue to planning
+        id: verdict
+        uses: actions/github-script@v7
+        env:
+          GATE_READY: ${{ needs.gate.outputs.ready }}
+          SINCE: ${{ needs.resolve.outputs.started_at }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            let verdict = 'blocked'; // an agent blocked, or the Reviewer did not report
+            if (process.env.GATE_READY === 'true') {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number, per_page: 100 });
+              const c = [...comments].reverse().find(x =>
+                x.body?.startsWith('<!-- reviewer:result -->') && new Date(x.created_at) >= new Date(process.env.SINCE));
+              const v = c && (c.body.match(/^verdict:\s*([\w-]+)/m) || [])[1];
+              if (['pass', 'changes-requested', 'blocked'].includes(v)) verdict = v;
+            }
+            core.setOutput('verdict', verdict);
+
+            if (verdict === 'changes-requested') {
+              // Hand the issue back to the Planner. The approval is spent, and `planning`
+              // is what the Planner expects. A label added with GITHUB_TOKEN starts no
+              // workflow, so the replan job below calls the Planner directly.
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name: 'ready-for-dev' });
+              } catch (err) { if (err.status !== 404) throw err; }
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['planning'] });
+            }
+            await core.summary.addHeading('Reviewer verdict').addRaw(`**${verdict}**`).write();
+
+  # ── The Reviewer found more to fix: the Planner analyzes it again ──
+  replan:
+    name: Planner (re-analyze review findings)
+    needs: verdict
+    if: needs.verdict.outputs.verdict == 'changes-requested'
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/planner.lock.yml
+    secrets: inherit
+
+  # ── Always: leave the issue in a state a human can act on ──
+  finalize:
+    name: Finalize
+    needs: [resolve, coder, infra, gate, reviewer, verdict, replan]
+    if: always() && needs.resolve.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Release ready-for-dev and report the outcome
+        uses: actions/github-script@v7
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            const needs = JSON.parse(process.env.NEEDS);
+            const verdict = needs.verdict.outputs?.verdict || 'blocked';
+            const failed = ['coder', 'infra', 'gate', 'reviewer', 'verdict', 'replan']
+              .filter(j => needs[j].result === 'failure' || needs[j].result === 'cancelled');
+
+            try {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name: 'ready-for-dev' });
+            } catch (err) { if (err.status !== 404) throw err; } // already removed
+
+            let outcome;
+            if (failed.length) {
+              outcome = `${failed.join(', ')} failed`;
+            } else if (verdict === 'pass') {
+              await core.summary.addHeading('Outcome').addRaw('Goal reached: the Reviewer passed the work. A human decides on the merge.').write();
+              return; // the Reviewer already added needs-review
+            } else if (verdict === 'changes-requested') {
+              // The Planner took over; it ends at spec-review or needs-clarification itself.
+              await core.summary.addHeading('Outcome').addRaw('The Reviewer requested changes; the Planner re-analyzed them. A human reviews the revised plan and approves another pass with `ready-for-dev`.').write();
+              return;
+            } else {
+              outcome = 'an agent or the Reviewer is blocked';
+            }
+
+            await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['needs-clarification'] });
+            await github.rest.issues.createComment({ owner, repo, issue_number,
+              body: `**Orchestrator:** stopped, ${outcome}. See the latest \`coder:result\`, \`infra:result\`, \`reviewer:result\` and \`planner:result\` comments. A human decides: fix or clarify, then re-add \`ready-for-dev\` to run the agents again.` });
+            await core.summary.addHeading('Outcome').addRaw(`Handed to a human: ${outcome}.`).write();

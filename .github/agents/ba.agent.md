@@ -2,7 +2,7 @@
 name: BA
 description: Turns a raw issue labeled `analysis` into clear, testable requirements that the Planner can turn into a Spec Kit package without further questions
 model: auto
-tools: [read,search,todo, github/*]
+tools: [read,search,todo, github/*, safeoutputs/*]
 ---
 
 # BA (Business Analyst)

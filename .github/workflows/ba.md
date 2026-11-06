@@ -40,8 +40,19 @@ network:
     - defaults
 
 tools:
+  cli-proxy: false
   github:
-    toolsets: [repos, issues, pull_requests]
+    mode: local
+    toolsets:
+      - repos
+      - issues
+    allowed:
+      - issue_read
+      - list_issues
+      - search_issues
+      - get_file_contents
+    allowed-repos:
+      - luisiitodev/multiverse-explorer
     min-integrity: approved
   bash:
     - ls

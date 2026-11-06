@@ -39,6 +39,18 @@ Run the same checks as CI for every area you touched, and fix failures you cause
 
 Report any check you could not run, and why. Never claim a check passed without having run it.
 
+## PR description
+
+The PR body must follow `.github/pull_request_template.md`. Read the template and the current PR body, then replace the body (the update replaces it whole, so nothing may be lost):
+
+- Keep every template heading, in order. Remove the HTML comments.
+- Keep `Closes #<n>`, `Type` and the Planner's `Spec review` section as they are. Do not rewrite the Planner's decisions.
+- Keep the Planner's `Acceptance criteria` rows and wording. Do not add, remove or reword criteria. For each row, fill `Code` and `Test` with `path:line` and tick `Met` only if the code exists and a test that you ran and that passed proves it. List every unticked row, with the reason, under **Criteria not met or not verifiable**. Do not mark the PR ready while any criterion is unticked unless you report `blocked`.
+- Fill `Summary`, `Implementation` (what was implemented, tasks done/total, tasks handed to Infra, deviations) and `Verification`.
+- In `Verification`, fill the result column only for checks you ran, with the real outcome. Leave the others empty and list them, with the reason, under **Not run, and why**. The body must match the `checks` block of your result comment.
+- Tick a `Risk checklist` item only after verifying it against your diff. Leave it unticked and explain under `Notes for reviewers` if it does not hold.
+- Use `N/A` or `None` instead of deleting a section. Never mark the PR ready with `Pending` left under `Implementation` or `Verification`.
+
 ## Rules
 
 - **Scope.** Write only what the tasks or assessment require. Allowed paths: `frontend/**`, `backend/**`, `docker-compose.yml`, `specs/**`, `.specify/bugs/**`, `docs/**`. Never touch `infra/`, `.github/`, `CODEOWNERS`, `.specify/memory/` or secrets. If the plan needs a change in those, stop and report `blocked`. Changes in `infra/` are handed off to the Infra agent, not blocked.
@@ -81,5 +93,5 @@ Two to four sentences on what was implemented or fixed.
 Bulleted list of anything not done as planned, with evidence, or "None".
 ````
 
-- `ready-for-review`: implementation complete and every check that applies passes. Retitle the PR to describe the change (drop the `Spec:` / `Bug assessment:` prefix), update its body with what was implemented and how it was verified, mark it ready for review, and swap `ready-for-dev` for `needs-review`. If infra tasks remain, also add `ready-for-infra`.
+- `ready-for-review`: implementation complete and every check that applies passes. Retitle the PR to describe the change (drop the `Spec:` / `Bug assessment:` prefix), rewrite its body following `.github/pull_request_template.md` (see **PR description** below), mark it ready for review, and swap `ready-for-dev` for `needs-review`. If infra tasks remain, also add `ready-for-infra`.
 - `blocked`: leave the PR in draft, keep `ready-for-dev`, add `needs-clarification`, and state exactly what the human must decide.

@@ -42,7 +42,7 @@ For each open question, in this order:
 
 Track the workflow with the todo tool.
 
-1. **Read the issue.** Fetch the title, body, labels, comments and linked issues/PRs with the GitHub tools.
+1. **Read the issue.** Fetch the title, body, labels, comments and linked issues/PRs with the GitHub tools. If the latest `<!-- ba:result -->` comment has `status: ready-for-planning`, the BA already analyzed the request: use its **Requirements** as the primary input (the `type` and `title` it gives replace your own classification), and use its **Grounding** as a starting point you must re-verify in the code before relying on it. The BA's `Q: … → A: …` clarifications count as answered questions, so do not re-ask them. Without a BA result, work from the issue as before.
 2. **Load project rules.** Read `.specify/memory/constitution.md` and skim `docs/` for guidance relevant to the change.
 3. **Branch.** Create a branch from `main`: `spec/<issue-number>-<short-name>` for features, `bug/<issue-number>-<short-name>` for bugs. All Spec Kit output is committed there, never to `main`.
 

@@ -1,0 +1,54 @@
+name: Bug report
+description: Something is broken or behaves differently from what you expect. The BA agent will analyze it and hand it to the Planner.
+title: "[Bug]: "
+labels: ["bug", "analysis"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe what you saw. You do not need to know the cause.
+        The BA agent reads this form, checks it against the product, and replies on this issue with any questions.
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened?
+      description: What did you see? Include any error message.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps, starting from opening the app.
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Where did it happen?
+      description: Browser and version, device, environment (local, staging, production).
+    validations:
+      required: false
+  - type: textarea
+    id: impact
+    attributes:
+      label: Who is affected and how badly?
+      description: How many users, how often, and whether there is a workaround.
+    validations:
+      required: false
+  - type: textarea
+    id: references
+    attributes:
+      label: Screenshots, logs or links
+    validations:
+      required: false

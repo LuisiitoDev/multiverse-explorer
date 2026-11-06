@@ -1,0 +1,20 @@
+title: "[Idea]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell the BA agent what you need, in your own words. It will chat with you here, ask a few questions,
+        and then turn the conversation into a ready-to-plan issue. You do not need to know the code.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What do you need, or what is going wrong?
+      description: A sentence or a few paragraphs is fine. If something is broken, say what you saw and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does it matter, and who is it for?
+    validations:
+      required: false

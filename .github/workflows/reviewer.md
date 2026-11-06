@@ -31,11 +31,11 @@ checkout:
 
 steps:
   - name: Set up Node
-    uses: actions/setup-node@v7
+    uses: actions/setup-node@v7.1.0
     with:
       node-version: 22
   - name: Set up .NET
-    uses: actions/setup-dotnet@v6
+    uses: actions/setup-dotnet@v6.1.0
     with:
       dotnet-version: 10.0.x
   - name: Install Bicep

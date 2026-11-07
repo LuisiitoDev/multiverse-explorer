@@ -125,7 +125,7 @@ The orchestrator calls you when the latest `<!-- reviewer:result -->` comment ha
 
 ## Output
 
-Every run ends with exactly one comment on the issue and the same content as your final response. The first line is always a status marker and the block below it is machine-readable, so the Coder and automation can parse it. Fill in real values and omit nothing.
+Every run ends with exactly one comment on the issue and the same content as your final response. Its first two lines must be exactly `<!-- planner:result -->` then `## Planner result: <status>`; do not put prose, a greeting, or a generated footer before them. The block below is machine-readable, so the Coder and automation can parse it. Fill in real values and omit nothing. After the draft PR safe output runs, record its actual URL in `pr:`. If its URL is not available in the same run, retain the Planner branch so the orchestrator can resolve the uniquely associated open Planner PR.
 
 ````markdown
 <!-- planner:result -->

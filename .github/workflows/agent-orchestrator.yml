@@ -128,8 +128,10 @@ jobs:
     name: Coder
     needs: resolve
     if: needs.resolve.outputs.run == 'true' && needs.resolve.outputs.run_coder == 'true'
+    # Must cover permissions requested by every job in the reusable workflow.
     permissions:
       actions: read
+      checks: read
       contents: write
       issues: write
       pull-requests: write
@@ -140,8 +142,10 @@ jobs:
     name: Infra Agent
     needs: resolve
     if: needs.resolve.outputs.run == 'true' && needs.resolve.outputs.run_infra == 'true'
+    # Must cover permissions requested by every job in the reusable workflow.
     permissions:
       actions: read
+      checks: read
       contents: write
       issues: write
       pull-requests: write
@@ -220,8 +224,10 @@ jobs:
     name: Reviewer
     needs: gate
     if: needs.gate.outputs.ready == 'true'
+    # Must cover permissions requested by every job in the reusable workflow.
     permissions:
       actions: read
+      checks: read
       contents: read
       issues: write
       pull-requests: write
@@ -278,9 +284,12 @@ jobs:
     name: Planner (re-analyze review findings)
     needs: verdict
     if: needs.verdict.outputs.verdict == 'changes-requested'
+    # Must cover permissions requested by every job in the reusable workflow.
     permissions:
       actions: read
+      checks: read
       contents: write
+      discussions: write # Planner activation posts reaction feedback
       issues: write
       pull-requests: write
     uses: ./.github/workflows/planner.lock.yml

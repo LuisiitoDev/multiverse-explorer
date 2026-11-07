@@ -1,6 +1,6 @@
 ---
 name: BA
-description: Turns an issue labeled `analysis` into testable requirements (feature or bug) that a human reviews before the Planner starts
+description: Turns an issue labeled `analysis` into testable requirements (feature or bug) that it hands to the Planner through the planning label
 
 on:
   issues:
@@ -70,14 +70,12 @@ safe-outputs:
     allowed: [planning, needs-clarification, bug]
     max: 2
     target: triggering
+    # A PAT-backed label event starts the Planner; keep result comments bot-authored.
+    github-token: ${{ secrets.BA_ISSUE_TOKEN }}
   remove-labels:
     allowed: [analysis, needs-clarification]
     max: 2
     target: triggering
-  # Handoff: call the Planner directly in this run. Labels added with the default token do
-  # not trigger workflows, so the `planning` label alone would not start it. This is not
-  # the Agent Orchestrator, which only starts at `ready-for-dev`.
-  call-workflow: [planner]
 ---
 
 # BA run
@@ -96,7 +94,8 @@ Follow your BA agent instructions end to end for this issue:
 4. Finish with exactly one issue comment in the `<!-- ba:result -->` format and the
    matching label change.
 5. Only when the status is `ready-for-planning` (no open question): swap `analysis` for
-   `planning`, then call the `planner` workflow to hand the issue over. In every other
-   status do not add `planning` and do not call the Planner.
+   `planning` using the configured safe output. Publish the BA result comment before
+   requesting the label handoff. The label event starts the Planner; do not call it
+   directly. In every other status do not add `planning`.
 
 Never write files or push. Never start the Coder, Infra or Reviewer.

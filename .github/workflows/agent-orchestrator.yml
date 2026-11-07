@@ -77,14 +77,40 @@ jobs:
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner, repo, issue_number, per_page: 100 });
-            // Result comments are control data: accept only the workflow identity, never a user comment.
-            const planner = [...comments].reverse().find(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith('<!-- planner:result -->'));
+            // Result comments are control data: accept only bot-authored Planner output.
+            // The heading form is retained for results written before the marker was enforced.
+            const isPlannerResult = (comment) =>
+              comment.user?.login === 'github-actions[bot]' &&
+              (/^<!-- planner:result -->\s*\n## Planner result:/m.test(comment.body || '') ||
+               /^## Planner result:/m.test(comment.body || ''));
+            const planner = [...comments].reverse().find(isPlannerResult);
             if (!planner) return stop('no planner result on the issue');
             const field = (k) => (planner.body.match(new RegExp(`^${k}:\\s*(\\S+)`, 'm')) || [])[1];
             if (field('status') !== 'awaiting-review') return stop(`planner status is ${field('status')}`);
 
-            const pr_number = Number((field('pr') || '').match(/\/pull\/(\d+)/)?.[1]);
-            if (!pr_number) return stop('planner result has no PR');
+            let pr_number = Number((field('pr') || '').match(/\/pull\/(\d+)/)?.[1]);
+            if (!pr_number) {
+              const branch = field('branch');
+              let matches = [];
+              if (branch && branch !== 'null') {
+                ({ data: matches } = await github.rest.pulls.list({
+                  owner, repo, state: 'open', head: `${owner}:${branch}`, per_page: 2 }));
+              }
+              // Safe Outputs can add a unique suffix to the published branch. If the
+              // result still has the requested branch, resolve only the one open PR
+              // that is both planner-created and explicitly closes this issue.
+              if (matches.length === 0) {
+                const { data: open } = await github.rest.pulls.list({
+                  owner, repo, state: 'open', per_page: 100 });
+                const closing = new RegExp(`(?:closes|fixes|resolves)\\s+#${issue_number}\\b`, 'i');
+                matches = open.filter(candidate =>
+                  candidate.labels.some(label => label.name === 'planning-output') &&
+                  closing.test(candidate.body || '') &&
+                  (candidate.body || '').includes('<!-- gh-aw-workflow-id: planner -->'));
+              }
+              if (matches.length !== 1) return stop(`Planner result resolved ${matches.length} open PRs`);
+              pr_number = matches[0].number;
+            }
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: pr_number });
             if (pr.state !== 'open') return stop(`PR #${pr_number} is ${pr.merged ? 'merged' : 'closed'}`);
             if (!pr.labels.some(l => l.name === 'planning-output')) return stop(`PR #${pr_number} is not a Planner PR`);

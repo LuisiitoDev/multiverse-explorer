@@ -28,4 +28,4 @@ npm run build
 
 ## Automation
 
-The GitHub Actions workflow is intentionally not included in this branch. It will be created separately during the CI/CD exercise.
+See [Agent pipeline and trigger labels](docs/agent-pipeline.md) for BA intake, the Planner handoff, and the human approval gate for implementation.

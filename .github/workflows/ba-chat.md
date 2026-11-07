@@ -1,6 +1,6 @@
 ---
 name: BA Chat
-description: Chats with a stakeholder in a GitHub Discussion (category "Ask the BA"), then creates a form-shaped issue that the BA analyzes and hands to the Planner
+description: Chats with a stakeholder in a GitHub Discussion (category "Ask the BA"), then creates a completed issue-template-shaped issue labeled planning for the Planner
 
 on:
   discussion:
@@ -59,11 +59,11 @@ safe-outputs:
     target: triggering
     discussions: true
   # At most one issue, shaped like the issue forms. Created with a user token so that its
-  # `labeled` event starts the BA on the new issue (events from the default token do not).
+  # `labeled` event starts the Planner directly (events from the default token do not).
   create-issue:
     max: 1
-    labels: [analysis]
-    allowed-labels: [analysis, bug]
+    labels: [planning]
+    allowed-labels: [planning, bug]
     github-token: ${{ secrets.BA_ISSUE_TOKEN }}
 ---
 
@@ -79,11 +79,14 @@ Follow your BA agent instructions, section **Discussion chat mode**, for this Di
    `status: issue-created` before treating it as a prior BA result, as specified in
    **Discussion chat mode**.
 2. Ground your questions in the repository, and read the matching issue form in
-   `.github/ISSUE_TEMPLATE/`.
+   `.github/ISSUE_TEMPLATE/`. Use its exact title prefix, input headings, order, required
+   fields, and dropdown choices; do not invent answers to missing fields.
 3. If anything required is missing, reply once with short, business-level questions.
 4. When every required field is answered and no question is open, create exactly one
-   issue shaped like the form (with `Source: <Discussion URL>`), then reply with the
+   issue shaped like the form (with `Source: <Discussion URL>`) and the `planning`
+   label (also `bug` for bugs), then reply with the
    `<!-- ba-chat:result -->` comment linking it.
 
-Never edit the Discussion, never write files, and never start the Planner: the new issue
-starts the BA, which hands it over.
+Never edit the Discussion or write files. Do not add `analysis` to the completed issue
+or call another workflow directly: its `planning` label starts the Planner. Never add
+`ready-for-dev`; a human must approve the Planner's draft first.

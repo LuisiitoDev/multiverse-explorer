@@ -5,9 +5,9 @@ description: Turns an issue labeled `planning` into a Spec Kit package (or bug a
 on:
   issues:
     types: [labeled]
-  # Also called by ba.yml (hand-off of complete requirements) and by agent-orchestrator.yml
-  # (replan after the Reviewer asked for changes). A called workflow inherits the caller's
-  # event, which is a label event for another label (`analysis`, `ready-for-dev`).
+  # BA Chat creates completed issues with planning; issue BA adds planning after analysis.
+  # Also called by agent-orchestrator.yml for replan after Reviewer feedback.
+  # A called workflow inherits the caller's ready-for-dev event.
   workflow_call:
   # Only people who can write to the repo may trigger the planner.
   roles: [admin, maintainer, write]
@@ -81,8 +81,8 @@ safe-outputs:
     max: 2
     target: triggering
   remove-labels:
-    allowed: [planning]
-    max: 1
+    allowed: [planning, needs-clarification, spec-review]
+    max: 3
     target: triggering
 ---
 
@@ -98,7 +98,9 @@ Follow your Planner agent instructions end to end for this issue:
    (new run, resume after clarification, or revise after review).
 3. Produce the artifacts with the Spec Kit skills only.
 4. Finish with exactly one issue comment in the `<!-- planner:result -->` format,
-   the matching label swap, and (when the plan is complete) a draft PR.
+   the matching label swap, and (when the plan is complete) a draft PR. Clear stale
+   `needs-clarification` when questions are resolved, and stale `spec-review` when
+   returning the issue for clarification.
 
 Never write outside `specs/`, `.specify/feature.json` and `.specify/bugs/`.
 

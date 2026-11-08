@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Location } from '../types/location'
 import { getAccentClass } from '../utils/accentColor'
+import { describeLocation } from '../utils/describeLocation'
 import { connectionsBetween, layoutNodes } from '../utils/multiverseLayout'
 import MultiverseStarfield from './MultiverseStarfield'
 
@@ -9,16 +10,6 @@ type MultiverseMapProps = Readonly<{
   activeLocationId: number | null
   onSelectLocation: (location: Location) => void
 }>
-
-function describeLocation(location: Location): string {
-  const type = location.type || 'Unknown type'
-  const dimension = location.dimension || 'Unknown dimension'
-  const residents = location.residents.length
-
-  return `${location.name}. ${type}, ${dimension}. ${residents} ${
-    residents === 1 ? 'resident' : 'residents'
-  }.`
-}
 
 /**
  * The map surface. Paths and stars are drawn in a decorative SVG layer, while

@@ -246,6 +246,42 @@ jobs:
               { id: pr.node_id });
             core.notice(`Marked PR #${pr_number} ready for review.`);
 
+      # Label the Jira ticket "in-review" right as the Reviewer starts. This runs as a plain
+      # step, never inside the Reviewer's own agent session: the Reviewer builds and runs the
+      # PR's code in its sandbox and is deliberately given no secrets (see reviewer.agent.md),
+      # so the Jira credential must never be reachable from there.
+      - name: Label the Jira ticket in-review
+        if: steps.gate.outputs.ready == 'true'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          ATLASSIAN_API_KEY: ${{ secrets.ATLASSIAN_API_KEY }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100 });
+            const planner = [...comments].reverse().find(c =>
+              c.user?.login === 'github-actions[bot]' && /^<!-- planner:result -->/.test(c.body || ''));
+            const jiraKey = planner && (planner.body.match(/^jira:\s*(\S+)/m) || [])[1];
+            if (!jiraKey || jiraKey === 'null') return core.notice('No Jira key on this issue; skipping.');
+
+            const auth = { Authorization: `Basic ${process.env.ATLASSIAN_API_KEY}`, 'Content-Type': 'application/json' };
+            const base = `https://luisiitodev.atlassian.net/rest/api/3/issue/${jiraKey}`;
+            const get = await fetch(base, { headers: auth });
+            if (!get.ok) return core.warning(`Could not read ${jiraKey}: ${get.status} ${await get.text()}`);
+            const issue = await get.json();
+            const labels = new Set(issue.fields.labels || []);
+            if (labels.has('in-review')) return core.notice(`${jiraKey} already labeled in-review.`);
+
+            const put = await fetch(base, {
+              method: 'PUT', headers: auth,
+              body: JSON.stringify({ update: { labels: [{ add: 'in-review' }] } }),
+            });
+            if (!put.ok) return core.warning(`Could not label ${jiraKey}: ${put.status} ${await put.text()}`);
+            core.notice(`Labeled ${jiraKey} in-review.`);
+
   reviewer:
     name: Reviewer
     needs: gate

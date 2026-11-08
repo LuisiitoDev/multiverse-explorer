@@ -22,6 +22,27 @@
         "work-queue",
         "health"
       ]
+    },
+    "atlassian": {
+      "type": "local",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.atlassian.com/v2/mcp",
+        "--header",
+        "Authorization: Basic $ATLASSIAN_API_KEY"
+      ],
+      "env": {
+        "ATLASSIAN_API_KEY": "$COPILOT_MCP_ATLASSIAN_API_KEY"
+      },
+      "tools": [
+        "getJiraIssue",
+        "getTransitionsForJiraIssue",
+        "transitionJiraIssue",
+        "addCommentToJiraIssue",
+        "searchJiraIssuesUsingJql"
+      ]
     }
   }
 }

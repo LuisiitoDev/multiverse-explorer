@@ -35,6 +35,23 @@ concurrency:
 network:
   allowed:
     - defaults
+    - "mcp.atlassian.com"
+
+mcp-servers:
+  atlassian:
+    command: npx
+    args:
+      - "-y"
+      - "mcp-remote"
+      - "https://mcp.atlassian.com/v2/mcp"
+      - "--header"
+      - "Authorization: Basic $ATLASSIAN_API_KEY"
+    env:
+      ATLASSIAN_API_KEY: ${{ secrets.ATLASSIAN_API_KEY }}
+    allowed:
+      - createJiraIssue
+      - getVisibleJiraProjects
+      - getJiraProjectIssueTypesMetadata
 
 tools:
   github:

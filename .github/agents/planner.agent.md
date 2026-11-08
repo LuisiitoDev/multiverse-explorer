@@ -2,7 +2,7 @@
 name: Planner
 description: Creates implementation plans by reading issues created and tagged with 'planning'
 model: auto
-tools: [read,search,edit,execute,web,todo, github/*]
+tools: [read,search,edit,execute,web,todo, github/*, atlassian/*]
 ---
 
 # Planner
@@ -108,6 +108,17 @@ The orchestrator calls you when the latest `<!-- reviewer:result -->` comment ha
 6. Push to the same branch and leave the PR state as it is. Reply to the Reviewer's threads with the task that addresses each finding. Request review again from the issue author and the owners in `CODEOWNERS`.
 7. Post an `awaiting-review` result and swap `planning` for `spec-review`. A human reviewer decides whether to approve another pass by adding `ready-for-dev`; you do not.
 
+## Create the Jira ticket
+
+Only when you are about to report `awaiting-review` for the first time on this issue: check the latest `<!-- planner:result -->` comment (if any) for a `jira:` field. If it already holds a real key, reuse it; never create a second ticket for the same issue. Otherwise, create one Jira issue with the `atlassian` tool's `createJiraIssue`:
+
+- `projectKey`: `ME`
+- `issueTypeName`: `Historia` for `type: feature`, `Error` for `type: bug`
+- `summary`: the GitHub issue title
+- `description`: the Summary you wrote for the PR, plus a link to `https://github.com/<owner>/<repo>/issues/<n>`
+
+Record the resulting key (e.g. `ME-42`) in the `jira:` field of your result comment. If creation fails for any reason, set `jira: null`, note the failure under **Risks and open items**, and continue — a missing Jira ticket never blocks the PR or the spec review.
+
 ## Publish
 
 - Commit only the Spec Kit output (`specs/<feature-dir>/` plus `.specify/feature.json` for features, `.specify/bugs/<slug>/` for bugs) and push the branch.
@@ -137,6 +148,7 @@ type: feature | bug
 issue: <number>
 branch: <branch name, or null>
 pr: <PR URL, or null>
+jira: <Jira key, e.g. ME-42, or null>
 pr_draft: <true | false | null>     # always true when the planner opens the PR
 round: <1 for the first run, +1 per clarification round>
 questions:                      # only when status is needs-clarification

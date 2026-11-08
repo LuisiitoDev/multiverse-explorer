@@ -6,6 +6,8 @@ import ErrorState from './ErrorState'
 import LoadingPortal from './LoadingPortal'
 import LocationDetailPanel from './LocationDetailPanel'
 import MultiverseMap from './MultiverseMap'
+import MultiverseMap3D from './MultiverseMap3D'
+import MultiverseMapModeToggle, { type ViewMode } from './MultiverseMapModeToggle'
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
@@ -27,6 +29,7 @@ function MultiverseMapView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [retryToken, setRetryToken] = useState(0)
+  const [viewMode, setViewMode] = useState<ViewMode>('2d')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -99,12 +102,20 @@ function MultiverseMapView() {
 
       {!isLoading && !error && locations.length > 0 && (
           <>
-            <MultiverseMap
-              locations={locations}
-              activeLocationId={selectedLocation?.id ?? null}
-              onSelectLocation={handleSelect}
-            />
-
+            <MultiverseMapModeToggle mode={viewMode} onChange={setViewMode} />
+            {viewMode === '3d' ? (
+              <MultiverseMap3D
+                locations={locations}
+                activeLocationId={selectedLocation?.id ?? null}
+                onSelectLocation={handleSelect}
+              />
+            ) : (
+              <MultiverseMap
+                locations={locations}
+                activeLocationId={selectedLocation?.id ?? null}
+                onSelectLocation={handleSelect}
+              />
+            )}
           </>
         )}
 

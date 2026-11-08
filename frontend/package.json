@@ -16,6 +16,7 @@
     "react": "latest",
     "react-dom": "latest",
     "react-icons": "^5.7.0",
+    "three": "^0.187.0",
     "typescript": "latest",
     "vite": "latest"
   },
@@ -26,6 +27,7 @@
     "@testing-library/user-event": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@types/three": "^0.187.0",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "latest",
     "eslint-plugin-react-hooks": "latest",

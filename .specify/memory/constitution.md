@@ -1,13 +1,13 @@
 <!--
 Sync Impact Report
-Version change: 2.0.0 to 2.0.1
-Modified sections: Architecture and Technology (marked Azure Container Apps and
-Bicep as current, replaceable implementation choices); Principle V remains
-platform-agnostic.
-Added sections: None.
+Version change: 2.0.1 to 2.1.0
+Modified sections: Governance (agent output reviewed under Principle VI).
+Added sections: Principle VI (Product Owner Agent Governs Feature Intake);
+Product Owner Agent Rules.
 Removed sections: None.
 Follow-up TODOs: Confirm the original ratification date; configure CI to enforce
-the coverage threshold; implement Blue/Green in deployment workflows.
+the coverage threshold; implement Blue/Green in deployment workflows; add
+.github/agents/po.agent.md and its workflow and labels (docs/agent-pipeline.md).
 -->
 
 # Multiverse Explorer Constitution
@@ -62,6 +62,35 @@ production traffic only after validation succeeds. The previous Blue environment
 MUST remain available for rollback until Green is verified in production. A
 release MUST NOT depend on gradually ramping traffic through a canary stage.
 This provides a clear, reversible release boundary and limits user impact.
+
+### VI. Product Owner Agent Governs Feature Intake
+Feature ideas MUST enter the pipeline through the Product Owner (PO) agent, which
+precedes the BA, Planner, Coder, Infra, and Reviewer agents. The PO agent turns a
+raw idea into a feature proposal expressed as user value: problem, target user,
+prioritized user stories, measurable acceptance criteria, scope and non-goals,
+dependencies, risks, and open questions. It MUST NOT prescribe implementation,
+technology, or architecture; those belong to the Planner within Principles I-V.
+It MUST ask for clarification rather than invent requirements, and mark
+assumptions explicitly. Each proposal MUST be small enough to deliver and verify
+independently, and conflicts with this constitution MUST be flagged, not hidden.
+The PO agent proposes; a human maintainer approves. Its decisions are advisory
+until a human adds the approval label, and it MUST NOT approve, merge, or start
+implementation. This keeps feature definition traceable and human-controlled.
+
+## Product Owner Agent Rules
+
+- Output MUST use the repository feature form (`.github/ISSUE_TEMPLATE/`) headings
+  and be created as an issue linked to its source (discussion or request).
+- Acceptance criteria MUST be testable and align with Principle II (loading,
+  empty, and failure states) and Principle III (verification).
+- Features touching authentication, secrets, or data MUST state security impact
+  (Principle IV); features affecting releases MUST respect Principle V.
+- The agent runs with least privilege: no secret access, no repository writes
+  beyond issues, labels, and comments, and no label that triggers implementation.
+- Prioritization MUST state rationale (value, effort, risk); duplicates MUST be
+  searched for before creating a new proposal.
+- Handoff is by label to the BA/Planner per `docs/agent-pipeline.md`; the PO agent
+  MUST NOT call downstream agents directly.
 
 ## Architecture and Technology
 
@@ -126,4 +155,4 @@ justification and maintainer approval; exceptions MUST identify their scope,
 owner, and expiry or removal condition. Reviewers MUST request changes when a
 required quality gate fails or an unapproved deviation remains.
 
-**Version**: 2.0.1 | **Ratified**: TODO(RATIFICATION_DATE): confirm original adoption date | **Last Amended**: 2026-11-05
+**Version**: 2.1.0 | **Ratified**: TODO(RATIFICATION_DATE): confirm original adoption date | **Last Amended**: 2026-11-11

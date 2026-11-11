@@ -1,13 +1,13 @@
 name: Feature request
-description: Describe what you need in your own words. The BA agent will analyze it, ask follow-up questions if needed, and hand it to the Planner.
+description: Describe what you need in your own words. The Planner will turn it into a plan for human review.
 title: "[Feature]: "
-labels: ["analysis"]
+labels: ["planning"]
 body:
   - type: markdown
     attributes:
       value: |
         Write this the way you would explain it to a colleague. You do not need to know the code or the technology.
-        The BA agent reads this form, grounds it in the product, and replies on this issue with any questions.
+        The Planner reads this form and replies on this issue with any questions.
   - type: textarea
     id: request
     attributes:

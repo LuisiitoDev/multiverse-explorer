@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-Version change: 2.0.1 to 2.1.0
+Version change: 2.0.1 to 2.1.0 (BA agent removed; PO owns intake)
 Modified sections: Governance (agent output reviewed under Principle VI).
 Added sections: Principle VI (Product Owner Agent Governs Feature Intake);
 Product Owner Agent Rules.
@@ -65,7 +65,7 @@ This provides a clear, reversible release boundary and limits user impact.
 
 ### VI. Product Owner Agent Governs Feature Intake
 Feature ideas MUST enter the pipeline through the Product Owner (PO) agent, which
-precedes the BA, Planner, Coder, Infra, and Reviewer agents. The PO agent turns a
+precedes the Planner, Coder, Infra, and Reviewer agents (the BA agent has been removed; the PO agent owns intake and clarification). The PO agent turns a
 raw idea into a feature proposal expressed as user value: problem, target user,
 prioritized user stories, measurable acceptance criteria, scope and non-goals,
 dependencies, risks, and open questions. It MUST NOT prescribe implementation,
@@ -89,7 +89,7 @@ implementation. This keeps feature definition traceable and human-controlled.
   beyond issues, labels, and comments, and no label that triggers implementation.
 - Prioritization MUST state rationale (value, effort, risk); duplicates MUST be
   searched for before creating a new proposal.
-- Handoff is by label to the BA/Planner per `docs/agent-pipeline.md`; the PO agent
+- Handoff is by label to the Planner per `docs/agent-pipeline.md`; the PO agent
   MUST NOT call downstream agents directly.
 
 ## Architecture and Technology

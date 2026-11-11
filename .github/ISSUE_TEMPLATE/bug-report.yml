@@ -1,13 +1,13 @@
 name: Bug report
-description: Something is broken or behaves differently from what you expect. The BA agent will analyze it and hand it to the Planner.
+description: Something is broken or behaves differently from what you expect. The Planner will assess it and propose a fix plan for human review.
 title: "[Bug]: "
-labels: ["bug", "analysis"]
+labels: ["bug", "planning"]
 body:
   - type: markdown
     attributes:
       value: |
         Describe what you saw. You do not need to know the cause.
-        The BA agent reads this form, checks it against the product, and replies on this issue with any questions.
+        The Planner reads this form and replies on this issue with any questions.
   - type: textarea
     id: observed
     attributes:

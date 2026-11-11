@@ -28,4 +28,4 @@ npm run build
 
 ## Automation
 
-See [Agent pipeline and trigger labels](docs/agent-pipeline.md) for BA intake, the Planner handoff, and the human approval gate for implementation.
+See [Agent pipeline and trigger labels](docs/agent-pipeline.md) for intake, the Planner handoff, and the human approval gate for implementation.

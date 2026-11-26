@@ -22,8 +22,8 @@ the agents and could loop.
 | Title | Summary, as `[GH#<number>] <title>` without the `[Feature]: ` prefix |
 | Body | Description, after a line that links back to the GitHub issue |
 | Label `type: bug` | Type `Error` (Bug). Anything else is `Historia` (Story) |
-| Priority `P0` to `P3` (in the body or the Project) | Priority `Highest`, `High`, `Medium`, `Low` |
-| Closed | Status `Hecho` (Done) |
+| Priority `P0` to `P3` (in the body or the Project) | Priority `Highest`, `High`, `Medium`, `Low`. Only `P2` to `Medium` has been run |
+| Closed | Status `Listo` (Done). Not run yet |
 | Open | Status `Por hacer` (To Do) |
 | Forge labels (`planning`, `forge`, ...) | Not copied. They are the engine's state, not Jira's |
 
@@ -34,7 +34,8 @@ would only add noise to a new project.
 
 Ask Claude Code, in a session with the Atlassian connector: "sync the open issues of multiverse-explorer to Jira
 project ME". For each open issue it searches `project = ME AND labels = "gh-<n>"`, creates the issue if missing, and
-updates the summary and description if it exists. Closed issues that have a mirror are moved to Done.
+updates the summary and description if it exists. Closed issues that have a mirror are moved to `Listo`. Only the
+create path has been run (ME-2). The update and close paths are untested.
 
 ## Limits
 

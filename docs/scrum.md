@@ -17,6 +17,7 @@ How this repository runs Scrum with GitHub Projects, milestones and [Agentic For
 | Sprint Backlog | Items whose **Sprint** is the current iteration (view **Sprint board**) |
 | Increment | Pull requests merged to `main` and deployed by `cd.yml` |
 | Definition of Done | Section 4, enforced by CI and the PR template |
+| Spec | The acceptance criteria of the issue; a one-page spec for an epic. How much is decided by a risk tier: [sdd-lite.md](sdd-lite.md) |
 | Release / outcome | **Milestone** (`v0.1 Foundation`, `v0.2 Core`, `v1.0 GA`): placeholders, edit to the real roadmap |
 | Impediment | Issue with label `impediment` |
 
@@ -42,6 +43,7 @@ the engine's and are not reused for Scrum.
 
 **Definition of Ready** (a Product Backlog item may enter a sprint when):
 - It has a user, a need and testable acceptance criteria.
+- Its spec tier is set ([sdd-lite.md](sdd-lite.md)) and its open questions (at most 3) are answered.
 - It is estimated (`Estimate` set, at most 8), and has a milestone.
 - It has no open dependency, or the dependency is in the same sprint.
 
@@ -49,7 +51,7 @@ the engine's and are not reused for Scrum.
 - The PR is merged to `main` and closes the issue (`Closes #N`).
 - CI is green: frontend lint, tests and build; backend build and tests; CodeQL.
 - Every acceptance criterion is met and has a test, as the PR template's table shows.
-- No secret, no unreviewed dependency, docs updated where behaviour changed.
+- No secret, no unreviewed dependency, docs updated where behaviour changed. The acceptance criteria (or the epic's spec) are updated in the same PR if the behaviour differs from what they say.
 - The Reviewer passed and a human approved the merge (Forge: `needs-review`, then merge).
 
 ## 5. Events
@@ -60,7 +62,7 @@ the engine's and are not reused for Scrum.
 | Daily Scrum | Daily, 15 min | **Sprint board**; raise `impediment` issues |
 | Sprint Review | Last day | Show merged PRs and the deployed build; update the Product Backlog order |
 | Sprint Retrospective | Last day | Discussion in the **Retrospectives** category; actions become issues (`type: chore`) in the next sprint |
-| Refinement | Ongoing, mid-sprint | Split `epic`s, estimate, set milestone, move items to `Ready` |
+| Refinement | Ongoing, mid-sprint | Split `epic`s, estimate, set milestone, set the spec tier, answer open questions, move items to `Ready` |
 
 ### Using Forge in the sprint
 
@@ -105,13 +107,13 @@ Project to the repository. It is idempotent. These steps have **no API** and are
    `Done`; pull request merged sets `Done`; auto-add issues from this repository. The first three are on by default;
    auto-add needs the repository set to this one and the filter `is:issue is:open`.
 4. **Discussions**: add a category `Retrospectives` (open-ended). The repository already has discussion templates.
-5. **Branch protection on `main`**: see the decision in section 8. It is a ruleset, not classic branch protection.
+5. **Branch protection on `main`**: see the decision in section 7. It is a ruleset, not classic branch protection.
 
 The script ran from macOS (`gh` 2.92, bash 3.2) on 2026-11-26 and created everything, including the `Sprint` iteration
 field through GraphQL (`createProjectV2Field` with `iterationConfiguration`). A second run changed nothing. The
 **Scrum Setup** workflow has still not run successfully.
 
-## 8. Setup log and decisions (2026-11-26)
+## 7. Setup log and decisions (2026-11-26)
 
 Decisions taken while setting this up by hand. Each has its reason, so it can be reversed on purpose.
 
@@ -129,7 +131,7 @@ Rollback of the ruleset: the previous version (id `20899123`) had the rules `del
 `pull_request` (squash only, code-owner review, 0 approvals), `code_quality` and `required_linear_history`. Remove the
 `required_status_checks` rule to return to it.
 
-## 7. Open points
+## 8. Open points
 
 - The milestone names are placeholders. Replace them with the real roadmap and add due dates when a release is forecast.
 - The feature-request template still carries the label `analysis` from the removed pipeline. Forge starts on `forge`.

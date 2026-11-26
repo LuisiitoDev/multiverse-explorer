@@ -1,0 +1,99 @@
+# Research: Python stack for the Favorites service
+
+**Issue**: #133 (spike, tier 2) · **Date**: 2026-11-26 · **Epic spec**: [spec.md](spec.md)
+
+Five questions, each with a decision, the reason, and what was rejected. Everything marked **Verified** was run on 2026-11-26; everything marked **To verify** was not, and names the issue that must check it.
+
+Versions installed that day: Python 3.12.14, FastAPI 0.165.0, Starlette 1.10.0, SQLAlchemy 2.1.9, mssql-python 1.18.0, Authlib 1.9.10, itsdangerous 2.2.0, pytest 9.2.0, ruff 0.17.6, mypy 2.4.1, uv 0.12.13.
+
+## How it was tested
+
+- SQL Server 2022 (`mcr.microsoft.com/mssql/server:2022-latest`, the image of `docker-compose.yml`) in a disposable container.
+- The schema was created from the DDL of the EF migration `InitialCreate` (tables `Users`, `Favorites`, `ExternalLogins` and their indexes).
+- The scripts in [spike/](spike/) ran in a `python:3.12-slim` Linux container (arm64) and connected to that SQL Server. They are throwaway: they are not part of the service.
+
+```bash
+# MSSQL_PW is a disposable test password; never a real one
+docker run --rm -e MSSQL_HOST=host.docker.internal -e MSSQL_PW -v "$PWD/specs/001-favorites-python-api/spike":/spike:ro \
+  python:3.12-slim bash -c 'apt-get update -qq && apt-get install -y -qq libltdl7 libkrb5-3 libgssapi-krb5-2 \
+  && pip install -q sqlalchemy mssql-python && python /spike/spike_check.py'
+```
+
+## 1. SQL Server access
+
+**Decision**: SQLAlchemy 2.1 with the `mssql+mssqlpython` dialect and Microsoft's `mssql-python` driver, used **synchronously**. Route handlers are plain `def`, so FastAPI runs them in its thread pool.
+
+**Rationale** (Verified):
+- `mssql-python` connects without an ODBC driver manager. In `python:3.12-slim` it needed only three system packages: `libltdl7`, `libkrb5-3`, `libgssapi-krb5-2`. Without them the connection fails with "Failed to load the driver".
+- SQLAlchemy 2.1.9 ships the dialect. The Guid key comes back as `uuid.UUID`, `bigint` identity and `datetime2` round-trip, and the foreign key cascade works as in the schema.
+- Eight simultaneous identical inserts ended in exactly one row and seven `IntegrityError`s. A primary-key read took 1.39 ms on average (local, emulated SQL Server; this is not a load test).
+- `uv` resolves `mssql-python` for Linux x86_64 and arm64.
+
+**Alternatives considered**:
+- **Async with `mssql+aioodbc`**: the dialect exists in 2.1.9, but `aioodbc` and Microsoft's ODBC Driver 18 plus unixODBC would be needed in the image. **Not tested.** `mssql+mssqlpython` is **not async**: SQLAlchemy refuses it ("The loaded 'mssqlpython' is not async"). Revisit if concurrency grows beyond what a thread pool handles.
+- **`mssql+pyodbc`** (sync): same ODBC dependency as aioodbc with no benefit here.
+
+**Consequences**:
+- Size the connection pool against FastAPI's thread limit (documented default: 40; not measured here). Decide the number in #135.
+- **Duplicate detection** (Verified): a unique-index violation and a foreign-key violation both raise the same `IntegrityError`. The driver exposes no SQL Server error number (2601/2627) and no SQLSTATE, only the message text. So **do not parse the message**. After an `IntegrityError`, read the row again: if it exists, answer "conflict"; if not, re-raise. This is also correct under concurrency.
+- **macOS** (Verified, unresolved): on an Apple Silicon Mac the driver failed to load OpenSSL even with Homebrew's `openssl@3` on `DYLD_FALLBACK_LIBRARY_PATH`. Develop in the existing devcontainer or a Linux container.
+- **Apple Silicon and SQL Server** (Verified): the amd64 SQL Server image crashed once (exit 139) under emulation. Expect flakiness in local compose on those Macs.
+- **To verify** (#134): the same run on Linux x86_64 (production). Only arm64 Linux was executed.
+
+## 2. Schema ownership
+
+**Decision**: the Python service only **maps** the existing tables. It never creates or alters them. EF Core migrations own the schema until the .NET service is removed. No Alembic in this epic.
+
+**Rationale**: the spec requires no schema change and both services share one database during the parallel run (FR-014). Verified: Core `Table` definitions over the migration's DDL were enough for every operation above.
+
+**Alternatives considered**: Alembic with a baseline from the current DDL. Rejected for now: it adds a second owner of the schema while .NET still migrates it on startup (`Database:MigrateOnStartup`).
+
+**To verify** (#142, follow-up in the constitution): after the .NET removal, who owns the schema? The likely answer is an Alembic baseline taken from the EF migration history.
+
+## 3. OAuth client
+
+**Decision**: Authlib with its Starlette integration, one registered client per provider.
+
+**Rationale**: it is the usual client for FastAPI and Starlette; it keeps the temporary `state` in the Starlette session; Google works through OpenID Connect discovery.
+
+**Alternatives considered**: `fastapi-sso` and `loginpass` (extra layers over the same client); writing the flow by hand (more security-sensitive code to own).
+
+**To verify** (#139): everything provider-specific. Not run here because it needs real credentials: the Microsoft endpoint to use (the .NET service uses `AddMicrosoftAccount`), Facebook's flow (expected to be plain OAuth 2 with a Graph API call for the profile, not OpenID Connect; check it), and the `email_verified` and `TrustEmail` rules. Tests must use a fake provider, never the real ones. Authlib's API changed across versions (`userinfo` in the token), so pin it.
+
+## 4. Session and CSRF
+
+**Decision**:
+- **Session**: Starlette's `SessionMiddleware`, signed cookie, named `__Host-favorites.session`, carrying only the user id and an issue time. **Add the sliding expiry ourselves**.
+- **CSRF**: a double-submit token written by us (about 20 lines): a readable cookie `XSRF-TOKEN`, checked against the header `X-CSRF-TOKEN`, with an HMAC so it cannot be forged. No library.
+
+**Rationale** (Verified for the cookie): the middleware accepts the name `__Host-favorites.session` and sets `Path=/`, `Max-Age`, `HttpOnly`, `SameSite=Lax` and `Secure`, which match FR-006. But it **does not renew the cookie on a plain read**, and the .NET service does (sliding expiry). So #136 must refresh the cookie when it is older than a threshold.
+
+**Alternatives considered**:
+- **Server-side sessions** in the database: renewal and revocation come for free, but it adds a table and a read on every request. Revisit if revocation becomes a requirement.
+- **A CSRF library** (`starlette-csrf`): saves little code and its cookie and header names are not ours.
+
+**Risks**:
+- The cookie is **signed, not encrypted**: the client can read it. It must hold nothing secret.
+- Authlib keeps the OAuth `state` in the same session cookie, while .NET used a separate 10-minute cookie. Clear the session when the sign-in completes (session fixation). **To verify** in #136 and #139.
+- Cookie size limit of about 4 KB: keep the session small.
+- Every existing .NET session cookie becomes invalid at the cutover (Data Protection encryption). Already accepted in the spec.
+
+## 5. Tooling and layout
+
+**Decision**:
+- Python **3.12** (SQLAlchemy 2.1 needs 3.11 or later). Folder `backend/favorites-api-py/`.
+- Package manager `uv` with a committed `uv.lock`. `ruff` for lint and format, `mypy` for types, `pytest` with FastAPI's `TestClient` (sync, so no `pytest-asyncio`).
+- Image `python:3.12-slim` plus the three system packages from section 1, running as a non-root user.
+- Layers as in the constitution's Principle I: API (routes, cookies, CSRF), application (use cases), domain (rules), infrastructure (SQLAlchemy). Dependencies point inward.
+
+**Notes**: Starlette 1.10 warns that `TestClient` with `httpx` is deprecated and asks for `httpx2`. Decide the test client in #134. Versions above are the ones that worked on 2026-11-26; `uv.lock` pins them.
+
+## Open risks
+
+| Risk | Owner | Issue |
+|---|---|---|
+| Linux x86_64 run of the driver not executed | Developer of #134 | #134 |
+| OAuth flows per provider untested | Developer of #139 | #139 |
+| Sliding session expiry missing from the middleware | Developer of #136 | #136 |
+| Pool size vs thread pool limit not chosen | Developer of #135 | #135 |
+| Schema owner after the .NET removal | Owner | #142 |

@@ -34,6 +34,18 @@ services:
       db:
         condition: service_healthy
 
+  # Python replacement of `api` (epic #132). Runs next to it, only with `--profile python`.
+  # The database, sign-in settings and `depends_on: db` arrive with the stories that use them.
+  api-py:
+    profiles: ["python"]
+    image: ${DOCKER_REGISTRY-}favoritesapipy
+    build:
+      context: ./backend/favorites-api-py
+    environment:
+      FAVORITES_ENVIRONMENT: Development
+    ports:
+      - "8081:8080"
+
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:

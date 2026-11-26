@@ -1,0 +1,70 @@
+name: Backend Python
+
+run-name: Backend Python checks
+
+# Checks for the Python Favorites service (backend/favorites-api-py, epic #132). It is a workflow of its own because
+# the `CI` workflow is disabled (issue #143). The path filter keeps it from running on unrelated changes.
+# Do not add it to the required checks of the `main` ruleset while it has a path filter: a required check that does
+# not run on a pull request blocks the merge. Decide that together with #143.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/favorites-api-py/**"
+      - ".github/workflows/backend-python.yml"
+
+  push:
+    branches: [main]
+    paths:
+      - "backend/favorites-api-py/**"
+      - ".github/workflows/backend-python.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Python service
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: backend/favorites-api-py
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        # astral-sh/setup-uv v10.4.0, pinned by commit. The uv version equals the one in the Dockerfile.
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d
+        with:
+          version: "0.12.13"
+          enable-cache: true
+          cache-dependency-glob: backend/favorites-api-py/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy
+
+      - name: Tests and coverage (minimum 80%)
+        run: uv run pytest --cov --cov-report=term-missing
+
+      - name: Build the image
+        run: docker build --tag favorites-api-py:ci .

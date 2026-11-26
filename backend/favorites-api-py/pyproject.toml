@@ -1,0 +1,57 @@
+[project]
+name = "favorites-api"
+version = "0.1.0"
+description = "Favorites API on FastAPI. Replaces backend/src/Favorites.Api (.NET)."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.165,<1",
+    "pydantic-settings>=2.10,<3",
+    "uvicorn>=0.54,<1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16,<3",
+    "mypy>=2.4,<3",
+    "pytest>=9.2,<10",
+    "pytest-cov>=7,<8",
+    "ruff>=0.17,<1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/favorites_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+
+[tool.coverage.run]
+source = ["favorites_api"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/F: pycodestyle and pyflakes. I: imports. UP: modern syntax. B: bugbear. SIM: simplifications.
+# S: security checks (bandit). RUF: ruff's own.
+select = ["E", "F", "I", "UP", "B", "SIM", "S", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]

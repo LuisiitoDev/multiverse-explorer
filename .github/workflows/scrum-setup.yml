@@ -1,0 +1,66 @@
+name: Scrum Setup
+
+run-name: Scrum Setup (${{ inputs.repository }})
+
+# Runs scripts/scrum-setup.sh: labels, release milestones, the Scrum Project and its fields.
+# Idempotent: safe to run again. Views, Status options and Project workflows stay manual (docs/scrum.md, section 6).
+#
+# Needs the repository secret SCRUM_SETUP_TOKEN: a classic personal access token of the Project owner with the scopes
+# `repo` and `project`. GITHUB_TOKEN cannot create or edit a user-owned Project.
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repository to configure (owner/name)
+        required: true
+        default: LuisiitoDev/multiverse-explorer
+      project_title:
+        description: Title of the GitHub Project
+        required: true
+        default: "Multiverse Explorer: Scrum"
+      sprint_start:
+        description: Start date of Sprint 1 (YYYY-MM-DD). Empty means next Monday.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scrum-setup
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.SCRUM_SETUP_TOKEN }}
+      REPOSITORY: ${{ inputs.repository }}
+      PROJECT_TITLE: ${{ inputs.project_title }}
+      SPRINT_START_INPUT: ${{ inputs.sprint_start }}
+    steps:
+      - name: Check the token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Secret SCRUM_SETUP_TOKEN is not set (classic PAT with scopes repo and project)."
+            exit 1
+          fi
+
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Validate inputs
+        run: |
+          [[ "$REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::repository must be owner/name"; exit 1; }
+          if [ -n "$SPRINT_START_INPUT" ]; then
+            [[ "$SPRINT_START_INPUT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "::error::sprint_start must be YYYY-MM-DD"; exit 1; }
+            echo "SPRINT_START=$SPRINT_START_INPUT" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run scripts/scrum-setup.sh
+        run: scripts/scrum-setup.sh "$REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"

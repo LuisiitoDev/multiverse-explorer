@@ -29,3 +29,5 @@ npm run build
 ## Automation
 
 Development requests run on [Agentic Forge](https://github.com/LuisiitoDev/agentic-forge): open an issue and add the label `forge`. The engine runs BA and Planner, waits for a human to add `ready-for-dev`, then runs Coder and Reviewer and delivers a pull request.
+
+The team works in Scrum on GitHub Projects: see [Scrum on GitHub](docs/scrum.md).

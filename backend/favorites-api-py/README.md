@@ -71,6 +71,8 @@ Read from environment variables. A missing or invalid value stops the service; n
 | `ConnectionStrings__FavoritesDb` | ADO.NET connection string | none | Same variable and format as the .NET service, so one configuration serves both. Needed by whatever opens the database; the service stops with a clear message if it is missing or has a keyword other than `Server`, `Database`, `User Id`, `Password`, `Encrypt`, `TrustServerCertificate`. Never printed |
 | `FAVORITES_DB_POOL_SIZE` | 1 to 100 | `20` | Connections kept open. FastAPI runs `def` routes in a thread pool (documented default 40 threads), so 20 plus the overflow gives each thread a connection |
 | `FAVORITES_DB_MAX_OVERFLOW` | 0 to 100 | `20` | Extra connections allowed under load |
+| `FAVORITES_SESSION_SECRET` | 32 characters or more | none | Signs the session cookie. **Required outside `Development`**, where a random one is made at start (sessions then end on restart). Every replica must share the same value. Never printed |
+| `FAVORITES_SESSION_DAYS` | 1 to 365 | `14` | Lifetime of the session cookie; it is renewed on use after half of it has passed |
 
 ## Layout
 

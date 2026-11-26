@@ -9,6 +9,7 @@ from importlib.metadata import version
 from fastapi import FastAPI
 
 from favorites_api.api import health
+from favorites_api.api.session import install_session
 from favorites_api.config import Settings
 
 
@@ -24,5 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url="/openapi.json" if development else None,
     )
+    app.state.settings = settings
+    install_session(app, settings)
     app.include_router(health.router)
     return app

@@ -1,13 +1,18 @@
 <!--
 Sync Impact Report
-Version change: 2.0.0 to 2.0.1
-Modified sections: Architecture and Technology (marked Azure Container Apps and
-Bicep as current, replaceable implementation choices); Principle V remains
-platform-agnostic.
+Version change: 2.0.1 to 2.1.0
+Modified sections: Architecture and Technology (the Favorites backend is .NET
+today; a time-boxed, scoped exception allows its migration to Python with
+FastAPI, see specs/001-favorites-python-api); Development Workflow and Quality
+Gates (the backend CI gate is described by what it checks, not by a toolchain).
+Principles I to V are unchanged.
 Added sections: None.
 Removed sections: None.
 Follow-up TODOs: Confirm the original ratification date; configure CI to enforce
-the coverage threshold; implement Blue/Green in deployment workflows.
+the coverage threshold; implement Blue/Green in deployment workflows; after the
+.NET service is removed, drop the exception and state the Python backend as the
+rule; name the tool that owns the database schema once EF Core migrations are
+gone.
 -->
 
 # Multiverse Explorer Constitution
@@ -70,8 +75,19 @@ This provides a clear, reversible release boundary and limits user impact.
 - The backend targets .NET and ASP.NET Core and is organized into API, Application,
   Domain, and Infrastructure projects. Entity Framework Core and SQL Server
   provide persistence for Favorites.
+- **Exception: migration of the Favorites backend to Python.** The Favorites
+  backend is being migrated to Python with FastAPI (specification
+  `specs/001-favorites-python-api`). Scope: the whole Favorites API, including
+  external sign-in, the session cookie, and CSRF protection. Owner: the
+  repository owner. Until the cutover is verified in production, the .NET service
+  stays the production backend and the Python service runs beside it without
+  production traffic. The cutover MUST follow Principle V: the Python service is
+  Green and the .NET service stays Blue as the rollback target. The migration
+  keeps the layered boundaries of Principle I, keeps SQL Server for persistence,
+  and does not change the database schema. The exception ends when the .NET
+  service is removed (issue #142); the backend then targets Python with FastAPI.
 - Frontend tests use Vitest and Testing Library. Backend tests are separated into
-  unit and integration test projects.
+  unit and integration suites.
 - GitHub Actions provides CI and deployment workflows. Container images are
   revision-tagged, and the adopted deployment model is Blue/Green using isolated
   candidate and production environments with an explicit traffic switch. Azure
@@ -96,8 +112,11 @@ This provides a clear, reversible release boundary and limits user impact.
   in the same change unless a documented migration requires staged compatibility.
 - Run the relevant checks locally before proposing a change. CI is the merge
   gate and MUST continue to exercise frontend lint, test, and build steps and
-  backend build, unit-test, and integration-test steps. CI MUST report at least
-  80% code coverage for each of the frontend and backend test suites separately.
+  backend build, unit-test, and integration-test steps. For a Python service, the
+  build step is the container image build together with lint and type checks. CI
+  MUST report at least 80% code coverage for each of the frontend and backend test
+  suites separately, and every backend service in the repository MUST have such a
+  CI check before it carries production traffic.
 - Database schema changes MUST include the corresponding migration and tests or
   validation for affected persisted behavior.
 - Pull requests MUST describe behavior changes, verification performed, and any
@@ -126,4 +145,4 @@ justification and maintainer approval; exceptions MUST identify their scope,
 owner, and expiry or removal condition. Reviewers MUST request changes when a
 required quality gate fails or an unapproved deviation remains.
 
-**Version**: 2.0.1 | **Ratified**: TODO(RATIFICATION_DATE): confirm original adoption date | **Last Amended**: 2026-11-05
+**Version**: 2.1.0 | **Ratified**: TODO(RATIFICATION_DATE): confirm original adoption date | **Last Amended**: 2026-11-26

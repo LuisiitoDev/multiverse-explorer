@@ -36,6 +36,30 @@ uv run pytest --cov
 
 `pytest --cov` fails below 80% coverage, the minimum of the constitution (Principle III).
 
+### Integration tests (SQL Server)
+
+The tests under `tests/integration/` run on a real SQL Server, on a database built from the script EF Core generates
+(`tests/integration/schema.sql`). Each run creates its own database and drops it. Without a server they are **skipped**;
+CI sets `FAVORITES_REQUIRE_INTEGRATION=1`, where a missing server is a failure.
+
+The SQL Server driver (`mssql-python`) did not load OpenSSL on an Apple Silicon Mac, so run the suite in Linux: the
+devcontainer, or a container like this one (replace the password with the one of your compose database):
+
+```bash
+docker compose up -d db
+docker run --rm -v "$PWD/backend":/backend -w /backend/favorites-api-py \
+  -e FAVORITES_REQUIRE_INTEGRATION=1 -e UV_PROJECT_ENVIRONMENT=/tmp/venv \
+  -e "FAVORITES_TEST_DB_ADMIN=Server=host.docker.internal,1433;Database=master;User Id=sa;Password=<password>;TrustServerCertificate=True;Encrypt=True" \
+  python:3.12-slim bash -c 'apt-get update -qq && apt-get install -y -qq libltdl7 libkrb5-3 libgssapi-krb5-2 \
+    && pip install -q uv && uv sync --frozen && uv run pytest --cov'
+```
+
+The amd64 SQL Server image is emulated on Apple Silicon and has crashed on start; start it again if it exits.
+
+### When a new EF migration is added
+
+`tests/test_schema_drift.py` fails until `tests/integration/schema.sql` is regenerated. The command is in the header of that file.
+
 ## Settings
 
 Read from environment variables. A missing or invalid value stops the service; nothing has a secret as a default.

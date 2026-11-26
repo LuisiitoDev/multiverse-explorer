@@ -6,18 +6,21 @@ run-name: Backend Python checks
 # the `CI` workflow is disabled (issue #143). The path filter keeps it from running on unrelated changes.
 # Do not add it to the required checks of the `main` ruleset while it has a path filter: a required check that does
 # not run on a pull request blocks the merge. Decide that together with #143.
+# It also runs when an EF migration changes: tests/test_schema_drift.py then asks for a new schema fixture.
 
 on:
   pull_request:
     branches: [main]
     paths:
       - "backend/favorites-api-py/**"
+      - "backend/src/Favorites.Infrastructure/Persistence/Migrations/**"
       - ".github/workflows/backend-python.yml"
 
   push:
     branches: [main]
     paths:
       - "backend/favorites-api-py/**"
+      - "backend/src/Favorites.Infrastructure/Persistence/Migrations/**"
       - ".github/workflows/backend-python.yml"
 
   workflow_dispatch:
@@ -51,6 +54,31 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/favorites-api-py/uv.lock
 
+      - name: Install the driver's system libraries
+        # mssql-python needs these three; the runner image may not have them.
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libltdl7 libkrb5-3 libgssapi-krb5-2
+        working-directory: .
+
+      - name: Start SQL Server for the integration tests
+        # A throwaway password, made here and masked: nothing is committed.
+        working-directory: .
+        run: |
+          password="A1a$(openssl rand -hex 12)"
+          echo "::add-mask::$password"
+          docker run -d --name mssql -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$password" \
+            -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+          echo "FAVORITES_TEST_DB_ADMIN=Server=localhost,1433;Database=master;User Id=sa;Password=$password;TrustServerCertificate=True;Encrypt=True" >> "$GITHUB_ENV"
+          for attempt in $(seq 1 30); do
+            if docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$password" -C -Q "SELECT 1" >/dev/null 2>&1; then
+              echo "SQL Server is ready"
+              exit 0
+            fi
+            sleep 4
+          done
+          docker logs mssql
+          echo "SQL Server did not become ready"
+          exit 1
+
       - name: Install dependencies
         run: uv sync --frozen
 
@@ -64,6 +92,9 @@ jobs:
         run: uv run mypy
 
       - name: Tests and coverage (minimum 80%)
+        # With this variable a missing database fails the run instead of skipping the integration tests.
+        env:
+          FAVORITES_REQUIRE_INTEGRATION: "1"
         run: uv run pytest --cov --cov-report=term-missing
 
       - name: Build the image

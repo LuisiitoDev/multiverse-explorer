@@ -19,8 +19,12 @@ COPY src ./src
 RUN uv sync --frozen --no-dev --no-editable
 
 FROM base AS final
-# The ODBC-free SQL Server driver of #135 will need libltdl7, libkrb5-3 and libgssapi-krb5-2 here.
-RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
+# mssql-python needs no ODBC manager, but it does need these three libraries; without them it fails with
+# "Failed to load the driver" (found in the spike, issue #133).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libltdl7 libkrb5-3 libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"

@@ -28,4 +28,4 @@ npm run build
 
 ## Automation
 
-See [Agent pipeline and trigger labels](docs/agent-pipeline.md) for BA intake, the Planner handoff, and the human approval gate for implementation.
+Development requests run on [Agentic Forge](https://github.com/LuisiitoDev/agentic-forge): open an issue and add the label `forge`. The engine runs BA and Planner, waits for a human to add `ready-for-dev`, then runs Coder and Reviewer and delivers a pull request.

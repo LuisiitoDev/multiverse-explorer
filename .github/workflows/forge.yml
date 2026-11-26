@@ -1,0 +1,20 @@
+# Template: copy to .github/workflows/forge.yml in a target repository (ADR-0015).
+# Replace da9d04877189ab78304ccac0fb552586827c5166 in BOTH places with the same engine release, and add the secret FORGE_DISPATCH_TOKEN:
+# a fine-grained token on LuisiitoDev/agentic-forge with Actions: write (and Contents: read if the engine is
+# private). An organization secret set once serves every repository (ADR-0031).
+# This file has no logic on purpose. The engine's owner adds the target to its variable FORGE_ALLOWED_TARGETS.
+name: forge
+
+on:
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  forge:
+    uses: LuisiitoDev/agentic-forge/.github/workflows/forge-intake.yml@da9d04877189ab78304ccac0fb552586827c5166
+    with:
+      engine-ref: da9d04877189ab78304ccac0fb552586827c5166
+    secrets:
+      dispatch-token: ${{ secrets.FORGE_DISPATCH_TOKEN }}

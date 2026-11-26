@@ -33,6 +33,9 @@ against the existing code: it caught three wrong statements before anyone built 
 | 2 | One "yes" | Acceptance criteria, plus the decisions (one line each) and the verified facts, in the issue | The same, and the decisions are read in the PR |
 | 3 | Two or three "yes", or an epic | A one-page spec in `specs/NNN-name/spec.md`: goal, the rule, verified behaviour, decisions, open questions, out of scope, done when. It links to the issues; it does not copy their criteria | The owner reads the spec before the sprint starts |
 
+A story under a tier 3 epic inherits the epic's spec, so the third question does not count for it: the shared decisions
+are already written there.
+
 Write the tier on the issue (a line `Spec tier: 1`, `2` or `3`). If you are unsure between two tiers, take the lower one
 and raise it if the work shows more risk.
 

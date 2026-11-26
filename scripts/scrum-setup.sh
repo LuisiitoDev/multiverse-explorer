@@ -65,13 +65,14 @@ gh project link "$num" --owner "$OWNER" --repo "$REPO" >/dev/null 2>&1 || true
 fields="$(gh project field-list "$num" --owner "$OWNER" --format json)"
 has() { jq -e --arg n "$1" '.fields[] | select(.name==$n)' <<<"$fields" >/dev/null; }
 
+# Estimate is a NUMBER, not a single select: a Project can only sum number fields (Planning view, column totals).
 has "Estimate" || gh project field-create "$num" --owner "$OWNER" --name "Estimate" \
-  --data-type SINGLE_SELECT --single-select-options "1,2,3,5,8,13" >/dev/null
+  --data-type NUMBER >/dev/null
 has "Priority" || gh project field-create "$num" --owner "$OWNER" --name "Priority" \
   --data-type SINGLE_SELECT --single-select-options "P0 Critical,P1 High,P2 Medium,P3 Low" >/dev/null
 
 # The Sprint field is an Iteration (2 weeks). The CLI cannot create one, so use GraphQL.
-# To verify: createProjectV2Field with iterationConfiguration, run against the real API.
+# Verified on 2026-11-26 against the real API (macOS, gh 2.92): createProjectV2Field with iterationConfiguration works.
 if ! has "Sprint"; then
   pid="$(gh project view "$num" --owner "$OWNER" --format json --jq '.id')"
   gh api graphql -f query='

@@ -28,7 +28,7 @@ Milestones group work by **outcome** (a release); sprints group it by **time**. 
 |---|---|---|
 | Status | Single select (built in) | `Backlog`, `Ready`, `In progress`, `In review`, `Done` |
 | Sprint | Iteration | 2 weeks, starts on a Monday |
-| Estimate | Single select | `1`, `2`, `3`, `5`, `8`, `13` (story points; above 8, split it) |
+| Estimate | Number | Story points: use `1`, `2`, `3`, `5`, `8` or `13` (above 8, split it). A number so the Project can sum it |
 | Priority | Single select | `P0 Critical`, `P1 High`, `P2 Medium`, `P3 Low` |
 | Milestone, Labels, Assignees, Linked pull requests | Built in | |
 
@@ -96,16 +96,38 @@ Project to the repository. It is idempotent. These steps have **no API** and are
 1. **Status options.** Settings, field `Status`: `Backlog`, `Ready`, `In progress`, `In review`, `Done`.
 2. **Views.**
    - **Backlog**: table, filter `status:Backlog,Ready`, group by `Milestone`, sort manually (this is the order).
-   - **Sprint board**: board, filter `sprint:@current`, columns by `Status`, show `Estimate`.
+   - **Sprint board**: board, filter `sprint:@current`, columns by `Status`, show `Estimate`, column sum of `Estimate`.
    - **Roadmap**: roadmap layout, group by `Milestone`, markers on `Sprint`.
-   - **Planning**: table, filter `status:Ready -sprint:@current`, sum of `Estimate`, to pick the sprint.
+   - **Planning**: table, filter `status:Ready -sprint:@current`, group by `Priority`, sum of `Estimate` per group, to
+     pick the sprint. A table only offers a field sum when it is grouped.
+   - To rename a view, double-click its tab name, then select all and type. The menu entry "Rename view" did not work.
 3. **Project workflows** (Settings, Workflows): item added to the project sets `Status` to `Backlog`; item closed sets
-   `Done`; pull request merged sets `Done`; auto-add issues from this repository.
-4. **Discussions**: add a category `Retrospectives`. The repository already has discussion templates.
-5. **Branch protection on `main`**: require the CI checks and one approving review.
+   `Done`; pull request merged sets `Done`; auto-add issues from this repository. The first three are on by default;
+   auto-add needs the repository set to this one and the filter `is:issue is:open`.
+4. **Discussions**: add a category `Retrospectives` (open-ended). The repository already has discussion templates.
+5. **Branch protection on `main`**: see the decision in section 8. It is a ruleset, not classic branch protection.
 
-Check the first run: the iteration field is created through GraphQL (`createProjectV2Field` with
-`iterationConfiguration`) and is **To verify**; if it fails, create `Sprint` in the UI (Iteration, 2 weeks).
+The script ran from macOS (`gh` 2.92, bash 3.2) on 2026-11-26 and created everything, including the `Sprint` iteration
+field through GraphQL (`createProjectV2Field` with `iterationConfiguration`). A second run changed nothing. The
+**Scrum Setup** workflow has still not run successfully.
+
+## 8. Setup log and decisions (2026-11-26)
+
+Decisions taken while setting this up by hand. Each has its reason, so it can be reversed on purpose.
+
+| Decision | Why |
+|---|---|
+| `Estimate` is a Number field, replaced after creation | A Project sums only number fields. As a single select, the "sum of Estimate" the Planning view needs was impossible. The Project had no items, so nothing was lost. The script now creates a Number. |
+| `Planning` is grouped by `Priority` | A table shows a field sum only when grouped. `Priority` is the order in which work is pulled into a sprint, so the per-group totals are useful while picking. |
+| `Retrospectives` is an open-ended category | A retrospective is a conversation, not a question with one right answer. Q&A would add "mark as answer" with no meaning. |
+| Auto-add takes `is:issue is:open` from this repository only | The Product Backlog is made of issues, as section 1 says; pull requests are not backlog items. The workflow's default repository was `agentic-forge` and its default filter was `is:issue,pr is:open label:bug`, so both were changed. Add `pr` to the filter if pull requests should get cards too. |
+| `main` ruleset: add required checks `Analyze (csharp)` and `Analyze (javascript-typescript)` (CodeQL) | The `CI` workflow is **disabled** (`disabled_manually`), so its checks `build` and `backend` never report on a pull request. Requiring them would block every merge. The CodeQL jobs run and pass on every pull request, including the ones Forge opens, so they are the working equivalent of "require the CI checks". Not set to "up to date with main", to avoid rebases. |
+| `main` ruleset: approvals stay at `0` (not the `1` this document first said) | The ruleset has no bypass actors and the owner is the only maintainer. With one required approval, GitHub does not count the author's own approval, so the owner could not merge their own pull requests. The human approval of the Forge flow (`ready-for-dev`) already gates agent work. Raise it when a second maintainer exists. |
+| `CI` workflow left disabled | It was disabled manually and the reason is not recorded here, so re-enabling it is a separate decision for the owner. When it is enabled, add `build` and `backend` to the ruleset's required checks. |
+
+Rollback of the ruleset: the previous version (id `20899123`) had the rules `deletion`, `non_fast_forward`,
+`pull_request` (squash only, code-owner review, 0 approvals), `code_quality` and `required_linear_history`. Remove the
+`required_status_checks` rule to return to it.
 
 ## 7. Open points
 

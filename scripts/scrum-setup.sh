@@ -10,7 +10,8 @@ set -euo pipefail
 REPO="${1:-LuisiitoDev/multiverse-explorer}"
 OWNER="${REPO%%/*}"
 PROJECT_TITLE="${PROJECT_TITLE:-Multiverse Explorer: Scrum}"
-SPRINT_START="${SPRINT_START:-$(date -d 'next monday' +%F)}" # first sprint starts this Monday
+# First sprint starts next Monday. GNU date (Linux) and BSD date (macOS) take different flags.
+SPRINT_START="${SPRINT_START:-$(date -d 'next monday' +%F 2>/dev/null || date -v+monday +%F)}"
 
 command -v gh >/dev/null && command -v jq >/dev/null || { echo "gh and jq are required" >&2; exit 1; }
 

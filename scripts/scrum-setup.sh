@@ -2,6 +2,8 @@
 # Idempotent Scrum setup for this repository: labels, milestones and a GitHub Project (v2).
 # Usage: scripts/scrum-setup.sh [owner/repo]        Needs: gh, jq, and `gh auth login` with scopes repo + project.
 # Safe to re-run: existing labels, milestones, project and fields are skipped.
+# Env: SKIP_PROJECT=1 stops after labels and milestones (a GitHub App token cannot reach a user-owned Project).
+#      PROJECT_GH_TOKEN, if set, is the token used for the Project steps only (classic PAT, scopes repo + project).
 # Views, Status options and Project workflows have no API: finish them by hand (docs/scrum.md, section 6).
 set -euo pipefail
 
@@ -44,6 +46,12 @@ for m in "${milestones[@]}"; do
 done
 
 # --- Project ---
+if [ "${SKIP_PROJECT:-0}" = "1" ]; then
+  echo
+  echo "Skipped the Project (SKIP_PROJECT=1). Run this script with 'gh auth login' (scopes repo + project) to create it."
+  exit 0
+fi
+[ -z "${PROJECT_GH_TOKEN:-}" ] || export GH_TOKEN="$PROJECT_GH_TOKEN"
 num="$(gh project list --owner "$OWNER" --format json --jq ".projects[] | select(.title==\"$PROJECT_TITLE\") | .number" | head -1)"
 if [ -z "$num" ]; then
   num="$(gh project create --owner "$OWNER" --title "$PROJECT_TITLE" --format json --jq '.number')"

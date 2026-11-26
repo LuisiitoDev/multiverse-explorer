@@ -81,9 +81,14 @@ Run once, from a machine with `gh` and `jq`, after `gh auth login` with the scop
 scripts/scrum-setup.sh LuisiitoDev/multiverse-explorer
 ```
 
-Or run the workflow **Scrum Setup** (Actions tab, Run workflow). It needs the repository secret `SCRUM_SETUP_TOKEN`, a
-classic personal access token of the Project owner with the scopes `repo` and `project`: `GITHUB_TOKEN` cannot create a
-user-owned Project. It is **To verify**: the workflow has not run on GitHub yet.
+Or run the workflow **Scrum Setup** (Actions tab, Run workflow). It is **To verify**: it has not run successfully yet.
+
+- Labels and milestones use a short-lived GitHub App token (`actions/create-github-app-token`). Set the variable
+  `SCRUM_APP_ID` and the secret `SCRUM_APP_KEY` of an App installed on this repository with Issues: write. Use a
+  dedicated App: anyone who can push a workflow here can read `SCRUM_APP_KEY`, so do not reuse the Forge engine's key.
+- A GitHub App token cannot reach a Project owned by a user account. The Project steps run only if the optional secret
+  `SCRUM_PROJECT_TOKEN` exists (a classic personal access token of the owner, scopes `repo` and `project`); otherwise the
+  workflow skips them (`SKIP_PROJECT=1`) and you create the Project by running the script locally.
 
 It creates the labels, the three milestones, the Project, the fields `Estimate`, `Priority` and `Sprint`, and links the
 Project to the repository. It is idempotent. These steps have **no API** and are done by hand in the Project:

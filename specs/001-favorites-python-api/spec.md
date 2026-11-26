@@ -35,7 +35,7 @@ Things the issues must not get wrong. Each one was read in the source, not assum
 - The return address after sign-in is accepted only when it is a relative path (starts with `/`, not `//` or `/\`); otherwise a default is used.
 - Linking: "conflict" if the provider account belongs to another user or is already linked here, or if unlinking would leave no way to sign in; "not found" if the provider is not linked; "bad request" for an unsupported provider.
 - Deleting a user deletes their favorites and linked providers (foreign keys with cascade).
-- The e-mail index on users is **not** unique.
+- The e-mail index on users is **unique for non-empty e-mails** (a filtered unique index, migration `UniqueNonEmptyUserEmail`); an empty e-mail may repeat. The first migration made it non-unique; the second changed it.
 
 ## Decisions
 | Decision | Why | Revisit if |

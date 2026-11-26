@@ -1,8 +1,9 @@
 # Favorites API (FastAPI)
 
 Python service that is replacing the .NET `backend/src/Favorites.Api`. Epic: #132. It keeps the same contract (URLs,
-payloads, status codes, cookie and header names) so the web app does not change. Today it only has `GET /health`; the
-favorites endpoints, session, CSRF and sign-in arrive story by story (#135 to #140).
+payloads, status codes, cookie and header names) so the web app does not change. Today it has `GET /health` and the data
+access layer on the existing SQL Server schema (#135); no endpoint uses it yet. The favorites endpoints, session, CSRF and
+sign-in arrive story by story (#136 to #140).
 
 ## Run it
 
@@ -77,8 +78,12 @@ Read from environment variables. A missing or invalid value stops the service; n
 src/favorites_api/
   app.py        application factory
   config.py     typed settings
-  api/          HTTP layer (routes). Application, domain and infrastructure layers are added by the stories that need them.
-tests/
+  api/          HTTP layer: routes (cookies and CSRF will live here)
+  application/  ports (what the use cases need from persistence); use cases come with the endpoints
+  domain/       resource types and the Favorite model, with no framework in them
+  infrastructure/persistence/
+                tables.py (maps the existing tables, never creates them), connection.py, repositories.py
+tests/          unit tests; integration/ needs SQL Server
 ```
 
 Decisions behind the stack: `specs/001-favorites-python-api/research.md`.

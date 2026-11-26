@@ -81,6 +81,10 @@ Run once, from a machine with `gh` and `jq`, after `gh auth login` with the scop
 scripts/scrum-setup.sh LuisiitoDev/multiverse-explorer
 ```
 
+Or run the workflow **Scrum Setup** (Actions tab, Run workflow). It needs the repository secret `SCRUM_SETUP_TOKEN`, a
+classic personal access token of the Project owner with the scopes `repo` and `project`: `GITHUB_TOKEN` cannot create a
+user-owned Project. It is **To verify**: the workflow has not run on GitHub yet.
+
 It creates the labels, the three milestones, the Project, the fields `Estimate`, `Priority` and `Sprint`, and links the
 Project to the repository. It is idempotent. These steps have **no API** and are done by hand in the Project:
 

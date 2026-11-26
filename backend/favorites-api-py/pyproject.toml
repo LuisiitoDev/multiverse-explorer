@@ -31,6 +31,7 @@ packages = ["src/favorites_api"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --strict-config"
+markers = ["integration: needs a SQL Server; set FAVORITES_TEST_DB_ADMIN (see README)"]
 
 [tool.coverage.run]
 source = ["favorites_api"]

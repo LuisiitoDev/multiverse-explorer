@@ -41,6 +41,10 @@ def make_app(
     def sign_in(request: Request, user_id: str) -> None:
         start_session(request, UUID(user_id))
 
+    @app.post("/test/sign-in-raw/{value}")
+    def sign_in_raw(request: Request, value: str) -> None:
+        request.session["uid"] = value  # a session whose user id is not a valid one
+
     return app
 
 
@@ -297,6 +301,41 @@ def test_delete_with_an_id_that_is_not_a_number_does_not_match_the_route(
 ) -> None:
     # ASP.NET's {id:long} constraint: the route does not match, so the answer is a plain 404.
     assert me.delete(f"{URL}/{favorite_id}", headers=change(me)).status_code == 404
+
+
+# --- the three operations together, and the cases the .NET suite covers ---------------------
+
+
+def test_create_list_and_delete_round_trip(me: TestClient) -> None:
+    created = me.post(URL, json={"resourceType": "Character", "resourceId": 1}, headers=change(me))
+    assert created.status_code == 201
+    favorite = created.json()
+    assert favorite["resourceType"] == "character"
+    assert created.headers["location"] == f"{URL}/{favorite['id']}"
+
+    listed = me.get(URL, params={"type": "character"}).json()
+    assert [item["id"] for item in listed] == [favorite["id"]]
+
+    assert me.delete(f"{URL}/{favorite['id']}", headers=change(me)).status_code == 204
+    assert me.get(URL).json() == []
+
+
+def test_a_duplicate_found_only_when_storing_is_a_409_problem(
+    me: TestClient, store: InMemoryFavorites
+) -> None:
+    store.race = True  # the check saw nothing; the database reports the duplicate on insert
+
+    response = me.post(URL, json={"resourceType": "episode", "resourceId": 7}, headers=change(me))
+
+    assert_problem(response, 409, "The resource is already in the user's favorites.")
+
+
+def test_every_operation_needs_a_valid_user_in_the_session(client: TestClient) -> None:
+    client.post("/test/sign-in-raw/not-a-guid")
+
+    assert client.get(URL).status_code == 401
+    assert client.post(URL, json={"resourceType": "character", "resourceId": 1}).status_code == 401
+    assert client.delete(f"{URL}/1").status_code == 401
 
 
 # --- OpenAPI and start-up -------------------------------------------------------------------

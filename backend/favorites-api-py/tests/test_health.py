@@ -1,11 +1,13 @@
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from favorites_api.app import create_app
 from favorites_api.config import Environment, Settings
 
 
 def client(environment: Environment) -> TestClient:
-    return TestClient(create_app(Settings(environment=environment)))
+    settings = Settings(environment=environment, session_secret=SecretStr("s" * 32))
+    return TestClient(create_app(settings))
 
 
 def test_health_answers_200_with_status_ok() -> None:

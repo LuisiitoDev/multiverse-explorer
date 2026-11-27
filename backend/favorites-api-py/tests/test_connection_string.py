@@ -15,6 +15,13 @@ COMPOSE = (
 )
 
 
+@pytest.fixture(autouse=True)
+def development(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests are about the database settings. Outside Development the settings also demand a
+    session secret, which is tested in test_config.py."""
+    monkeypatch.setenv("FAVORITES_ENVIRONMENT", "Development")
+
+
 def test_parses_the_string_the_dotnet_service_uses() -> None:
     url = parse_connection_string(COMPOSE)
 

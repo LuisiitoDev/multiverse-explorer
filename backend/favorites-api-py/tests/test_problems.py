@@ -30,6 +30,29 @@ def test_a_status_without_a_known_type_still_has_title_status_and_detail() -> No
     assert b'"type"' not in response.body
 
 
+def test_an_unexpected_error_is_a_500_problem_that_does_not_show_the_exception() -> None:
+    app = FastAPI()
+    install_problem_handler(app)
+
+    @app.get("/boom")
+    def boom() -> None:
+        raise RuntimeError("secret-database-details")
+
+    # The server would re-raise after answering; the test client must not, to see the answer.
+    response = TestClient(app, raise_server_exceptions=False).get("/boom")
+
+    assert response.status_code == 500
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.json() == {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+        "title": "An error occurred while processing your request.",
+        "status": 500,
+        "detail": "An unexpected error occurred.",
+    }
+    assert b"secret-database-details" not in response.content
+    assert b"RuntimeError" not in response.content
+
+
 def test_a_raised_problem_becomes_the_answer() -> None:
     app = FastAPI()
     install_problem_handler(app)

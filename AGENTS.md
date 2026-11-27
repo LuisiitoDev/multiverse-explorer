@@ -27,7 +27,7 @@ pull request, from a person or an agent, follows these rules.
    most **two** deep, merge the bottom one first, and retarget the next one to `main`. The workflows here run on pull
    requests that target `main`; a stacked pull request has no checks until it is retargeted, so run the workflow by hand
    on its branch (`workflow_dispatch`) and say so in the description.
-7. **Open as draft** until the checks pass. Agents never merge.
+7. **Open as draft** until the checks pass. Agents never merge on their own: only when the repository owner explicitly orders it for that PR, and only once the required checks pass.
 
 ### Measure it before you open it
 

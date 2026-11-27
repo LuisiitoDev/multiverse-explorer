@@ -80,7 +80,7 @@ Read from environment variables. A missing or invalid value stops the service; n
 src/favorites_api/
   app.py        application factory
   config.py     typed settings
-  api/          HTTP layer: routes (cookies and CSRF will live here)
+  api/          HTTP layer: health route, session.py (cookie), csrf.py (token), problems.py (errors)
   application/  ports (what the use cases need from persistence); use cases come with the endpoints
   domain/       resource types and the Favorite model, with no framework in them
   infrastructure/persistence/

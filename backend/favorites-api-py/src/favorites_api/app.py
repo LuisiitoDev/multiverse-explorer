@@ -9,6 +9,8 @@ from importlib.metadata import version
 from fastapi import FastAPI
 
 from favorites_api.api import health
+from favorites_api.api.csrf import install_csrf_cookie
+from favorites_api.api.problems import install_problem_handler
 from favorites_api.api.session import install_session
 from favorites_api.config import Settings
 
@@ -26,6 +28,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if development else None,
     )
     app.state.settings = settings
+    install_problem_handler(app)
+    install_csrf_cookie(app, settings)  # before the session: it needs the session
     install_session(app, settings)
     app.include_router(health.router)
     return app

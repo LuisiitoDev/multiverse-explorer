@@ -2,7 +2,7 @@
 
 Python service that is replacing the .NET `backend/src/Favorites.Api`. Epic: #132. It keeps the same contract (URLs,
 payloads, status codes, cookie and header names) so the web app does not change. Today it has `GET /health`, the data access layer on the existing SQL Server schema (#135), the signed session cookie and CSRF
-protection (#136) and the list endpoint of favorites (`GET /api/favorites`, #137; create and delete follow). Sign-in and account linking
+protection (#136) and the favorites endpoints (#137): `GET`, `POST` and `DELETE` on `/api/favorites`. Sign-in and account linking
 arrive in #139 and #140.
 
 ## Run it

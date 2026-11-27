@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from favorites_api.api import favorites as favorites_routes
 from favorites_api.api import health
 from favorites_api.api.csrf import install_csrf_cookie
-from favorites_api.api.openapi import hide_validation_responses
+from favorites_api.api.openapi import align_openapi_with_dotnet
 from favorites_api.api.problems import install_problem_handler
 from favorites_api.api.session import install_session
 from favorites_api.application.favorites import FavoriteService
@@ -55,7 +55,7 @@ def create_app(
     app.state.settings = settings
     app.state.favorites = favorites
     install_problem_handler(app)
-    hide_validation_responses(app)
+    align_openapi_with_dotnet(app)
     install_csrf_cookie(app, settings)  # before the session: it needs the session
     install_session(app, settings)
     app.include_router(health.router)

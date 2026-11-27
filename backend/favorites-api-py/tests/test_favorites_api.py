@@ -314,7 +314,7 @@ def test_openapi_lists_the_three_operations_with_the_net_names_and_statuses() ->
     assert operations == {
         ("GET", URL): ("GetFavorites", ["200", "400"]),
         ("POST", URL): ("CreateFavorite", ["201", "400", "404", "409"]),
-        ("DELETE", f"{URL}/{{favorite_id}}"): ("DeleteFavorite", ["204", "400", "404"]),
+        ("DELETE", f"{URL}/{{id}}"): ("DeleteFavorite", ["204", "400", "404"]),
     }
 
 

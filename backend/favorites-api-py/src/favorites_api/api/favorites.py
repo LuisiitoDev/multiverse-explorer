@@ -61,7 +61,7 @@ class CreateFavoriteRequest(_Camel):
     resource_id: Annotated[StrictInt, Field(le=_INT32_MAX)] = 0
 
 
-class Problem(BaseModel):
+class ProblemDetails(BaseModel):
     type: str | None = None
     title: str
     status: int
@@ -83,7 +83,7 @@ def _failure(error: Error) -> ProblemError:
 
 
 def _problem(status: int) -> dict[int | str, dict[str, object]]:
-    return {status: {"model": Problem, "description": "Problem details"}}
+    return {status: {"model": ProblemDetails, "description": "Problem details"}}
 
 
 # Sign-in first, then (for changes) the CSRF token, so a request without a session is a 401.
@@ -127,15 +127,15 @@ def create_favorite(
 
 
 @router.delete(
-    "/{favorite_id:signed_int}",
+    "/{id:signed_int}",
     operation_id="DeleteFavorite",
     status_code=204,
     response_class=Response,
     dependencies=[Depends(require_csrf)],
     responses={**_problem(400), **_problem(404)},
 )
-def delete_favorite(favorite_id: int, user_id: CurrentUserId, service: Service) -> Response:
-    result = service.delete(favorite_id, user_id)
+def delete_favorite(id: int, user_id: CurrentUserId, service: Service) -> Response:
+    result = service.delete(id, user_id)
     if isinstance(result, Error):
         raise _failure(result)
     return Response(status_code=204)

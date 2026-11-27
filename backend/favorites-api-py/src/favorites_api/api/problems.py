@@ -10,6 +10,7 @@ and the running service could not show a 400 body without its database (the anti
 from http import HTTPStatus
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 _RFC9110 = "https://tools.ietf.org/html/rfc9110#section-"
@@ -40,3 +41,13 @@ def install_problem_handler(app: FastAPI) -> None:
     @app.exception_handler(ProblemError)
     def handle(_: Request, error: ProblemError) -> JSONResponse:
         return problem_response(error.status_code, error.detail)
+
+    @app.exception_handler(RequestValidationError)
+    def handle_invalid_request(_: Request, error: RequestValidationError) -> JSONResponse:
+        # A body or parameter that does not fit is a 400, as in ASP.NET, not FastAPI's default 422.
+        # Only the field and the reason are sent back, never the value that was submitted.
+        reasons = [
+            f"{'.'.join(str(part) for part in item['loc'][1:])}: {item['msg']}".lstrip(": ")
+            for item in error.errors()
+        ]
+        return problem_response(400, "; ".join(reasons) or "The request is not valid.")

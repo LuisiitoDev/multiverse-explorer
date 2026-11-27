@@ -15,6 +15,8 @@ from fastapi.responses import JSONResponse
 
 _RFC9110 = "https://tools.ietf.org/html/rfc9110#section-"
 _TYPES = {400: "15.5.1", 404: "15.5.5", 409: "15.5.10"}
+# What ASP.NET's exception handler answers for an unexpected error, in Production.
+_UNEXPECTED_TITLE = "An error occurred while processing your request."
 
 
 class ProblemError(Exception):
@@ -51,3 +53,15 @@ def install_problem_handler(app: FastAPI) -> None:
             for item in error.errors()
         ]
         return problem_response(400, "; ".join(reasons) or "The request is not valid.")
+
+    @app.exception_handler(Exception)
+    def handle_unexpected(_: Request, error: Exception) -> JSONResponse:
+        # The server still logs the exception with its traceback. The client gets a generic
+        # document: nothing of the exception's text or type is sent back.
+        body = {
+            "type": _RFC9110 + "15.6.1",
+            "title": _UNEXPECTED_TITLE,
+            "status": 500,
+            "detail": "An unexpected error occurred.",
+        }
+        return JSONResponse(body, status_code=500, media_type="application/problem+json")
